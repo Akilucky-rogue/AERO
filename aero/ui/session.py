@@ -1,0 +1,36 @@
+"""
+aero/ui/session.py — Centralized Streamlit session-state initialization (CQ-009).
+
+Call init_session_state() once from main.py before st.navigation() to ensure
+all expected keys exist with sensible defaults.  This prevents per-page
+initialization races and makes debugging state-related issues straightforward.
+"""
+
+import streamlit as st
+
+
+def init_session_state() -> None:
+    """Initialize all application-level session-state keys with defaults.
+
+    Idempotent: keys that already exist (e.g., after a rerun) are left
+    unchanged so that active auth tokens and user data are preserved.
+    """
+    # ── Authentication (managed by aero.auth.service) ──────────────────────
+    if "aero_authenticated" not in st.session_state:
+        st.session_state["aero_authenticated"] = False
+    if "aero_user" not in st.session_state:
+        st.session_state["aero_user"] = None
+
+    # ── Data / upload state (shared across health-monitor pages) ───────────
+    if "last_upload_id" not in st.session_state:
+        st.session_state["last_upload_id"] = None
+    if "famis_df" not in st.session_state:
+        st.session_state["famis_df"] = None
+
+    # ── Planning state (shared across planner pages) ────────────────────────
+    if "selected_station" not in st.session_state:
+        st.session_state["selected_station"] = None
+
+    # ── UI state ────────────────────────────────────────────────────────────
+    if "active_tab" not in st.session_state:
+        st.session_state["active_tab"] = None

@@ -1,0 +1,51 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment
+.env
+.env.*
+
+# Runtime data (keep directory, ignore contents)
+data/*.xlsx
+data/*.csv
+!data/.gitkeep
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Node
+node_modules/
+
+# Large ML models
+*.pkl
+*.pt
+*.db
+
+# Temporary / migration scripts
+_apply_changes*.py
+_new_analytics_content.txt
+write_styles_helper.py

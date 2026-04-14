@@ -1,0 +1,19 @@
+[theme]
+primaryColor = "#4D148C"
+backgroundColor = "#FAFAFA"
+secondaryBackgroundColor = "#F2F2F2"
+textColor = "#333333"
+font = "sans serif"
+
+[server]
+headless = true
+maxUploadSize = 200
+# Security hardening (SEC-011)
+# Protect against CSRF attacks on all form submissions.
+enableXsrfProtection = true
+# Disable cross-origin resource sharing; use a reverse proxy to add
+# Content-Security-Policy and X-Frame-Options headers for production.
+enableCORS = false
+
+[browser]
+gatherUsageStats = false
