@@ -1,7 +1,31 @@
+import os
 import streamlit as st
+
+from aero import ASSETS_DIR
+
+
+def _load_font_face() -> str:
+    """Return a CSS @font-face block using the embedded FedEx Sans Arabic font."""
+    font_b64_path = os.path.join(ASSETS_DIR, "_font_b64.txt")
+    try:
+        with open(font_b64_path, "r", encoding="utf-8") as f:
+            b64 = f.read().strip()
+        return (
+            "@font-face {"
+            "font-family:'FedExSansArabic';"
+            f"src:url('data:font/truetype;base64,{b64}') format('truetype');"
+            "font-weight:500;font-style:normal;font-display:swap;"
+            "}"
+        )
+    except Exception:
+        return ""
 
 
 def apply_styles():
+    _font_face = _load_font_face()
+    # Inject the brand font first so all subsequent CSS can reference it
+    if _font_face:
+        st.markdown(f"<style>{_font_face}</style>", unsafe_allow_html=True)
     st.markdown("""
     <style>
     @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=DM+Sans:wght@400;500;600;700;800&display=swap");
@@ -25,8 +49,8 @@ def apply_styles():
         --dig-green:  #008A00;
         --dig-red:    #DE002E;
         --dig-yellow: #F7B118;
-        --font-sans: "Inter", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        --font-head: "DM Sans", "Inter", sans-serif;
+        --font-sans: "FedExSansArabic", "Inter", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --font-head: "FedExSansArabic", "DM Sans", "Inter", sans-serif;
         --r-xs: 2px; --r-sm: 4px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px; --r-pill: 100px;
         --sh-xs: 0 1px 2px rgba(0,0,0,0.05);
         --sh-sm: 0 1px 4px rgba(0,0,0,0.08);

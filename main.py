@@ -18,7 +18,7 @@ from aero.auth.service import (
 )
 
 # ============================================================
-# PAGE CONFIG — must be first Streamlit call
+# PAGE CONFIG — 
 # ============================================================
 st.set_page_config(
     page_title="AERO - Automated Evaluation Of Resource Occupancy",
@@ -132,6 +132,23 @@ elif role == "Leadership":
         ],
         "LEADERSHIP": [
             st.Page("pages/leadership_dashboard.py", title="Executive Dashboard", icon="👔"),
+        ],
+    }
+elif role == "Operations":
+    pages = {
+        "HOME": [
+            st.Page("pages/home.py", title="Home", icon="🏠", default=True),
+        ],
+        "FACILITIES": [
+            st.Page("pages/station_planner.py", title="Station", icon="🏢"),
+            st.Page("pages/hub_planner.py", title="Hub", icon="🏭"),
+        ],
+        "OPERATIONS": [
+            st.Page("pages/gateway_ops.py", title="Gateway Operations", icon="✈️"),
+            st.Page("pages/services_ops.py", title="Services Operations", icon="🛎️"),
+        ],
+        "ANALYTICS": [
+            st.Page("pages/leadership_dashboard.py", title="Analytics Overview", icon="📊"),
         ],
     }
 else:

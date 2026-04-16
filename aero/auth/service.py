@@ -2,7 +2,7 @@
 AERO Authentication Service.
 
 Manages user authentication against an Excel-based credential store.
-Supports four roles: Facility, Gateway, Services, Leadership.
+Supports five roles: Facility, Gateway, Services, Leadership, Operations.
 
 Security notes
 --------------
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 USERS_DB_PATH = os.path.join(DATA_DIR, "AERO_USERS.xlsx")
 
-VALID_ROLES: set[str] = {"Facility", "Gateway", "Services", "Leadership"}
+VALID_ROLES: set[str] = {"Facility", "Gateway", "Services", "Leadership", "Operations"}
 
 
 # ---------------------------------------------------------------------------
@@ -118,6 +118,84 @@ def seed_users() -> None:
     df = pd.DataFrame(rows)
     df.to_excel(USERS_DB_PATH, index=False, sheet_name="Users")
     logger.info("seed_users: created %s with %d user(s).", USERS_DB_PATH, len(rows))
+
+
+# ---------------------------------------------------------------------------
+# User management  (create / update users at runtime)
+# ---------------------------------------------------------------------------
+
+def upsert_user(
+    user_id: str,
+    password: str,
+    role: str,
+    display_name: str = "",
+) -> tuple[bool, str]:
+    """Create or update a user record in AERO_USERS.xlsx.
+
+    Returns ``(True, message)`` on success, ``(False, error_message)`` on failure.
+    Existing records are matched on *user_id* — all fields are updated when a
+    match is found. A new row is appended when no match exists.
+    """
+    user_id = user_id.strip()
+    password = password.strip()
+    role = role.strip()
+    display_name = (display_name.strip() or user_id)
+
+    if not user_id:
+        return False, "User ID must not be empty."
+    if not password:
+        return False, "Password must not be empty."
+    if role not in VALID_ROLES:
+        return False, f"Role '{role}' is not valid. Choose from: {sorted(VALID_ROLES)}."
+
+    try:
+        os.makedirs(DATA_DIR, exist_ok=True)
+        if os.path.exists(USERS_DB_PATH):
+            df = pd.read_excel(USERS_DB_PATH, sheet_name="Users")
+        else:
+            df = pd.DataFrame(
+                columns=["user_id", "display_name", "role", "password_hash", "is_active"]
+            )
+
+        hashed = _hash_password(password)
+
+        if user_id in df["user_id"].astype(str).values:
+            mask = df["user_id"].astype(str) == user_id
+            df.loc[mask, "display_name"]  = display_name
+            df.loc[mask, "role"]          = role
+            df.loc[mask, "password_hash"] = hashed
+            df.loc[mask, "is_active"]     = True
+            action = "updated"
+        else:
+            new_row = pd.DataFrame([{
+                "user_id":       user_id,
+                "display_name":  display_name,
+                "role":          role,
+                "password_hash": hashed,
+                "is_active":     True,
+            }])
+            df = pd.concat([df, new_row], ignore_index=True)
+            action = "created"
+
+        df.to_excel(USERS_DB_PATH, index=False, sheet_name="Users")
+        logger.info("upsert_user: %s user '%s' with role '%s'.", action, user_id, role)
+        return True, f"User '{user_id}' {action} successfully with role '{role}'."
+
+    except Exception as exc:
+        logger.exception("upsert_user failed: %s", exc)
+        return False, f"Failed to save user: {exc}"
+
+
+def list_users() -> pd.DataFrame:
+    """Return the users dataframe (without password hashes) for admin display."""
+    if not os.path.exists(USERS_DB_PATH):
+        return pd.DataFrame(columns=["user_id", "display_name", "role", "is_active"])
+    try:
+        df = pd.read_excel(USERS_DB_PATH, sheet_name="Users")
+        return df.drop(columns=["password_hash"], errors="ignore")
+    except Exception as exc:
+        logger.warning("list_users: %s", exc)
+        return pd.DataFrame(columns=["user_id", "display_name", "role", "is_active"])
 
 
 # ---------------------------------------------------------------------------

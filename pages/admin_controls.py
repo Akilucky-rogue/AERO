@@ -439,6 +439,41 @@ if st.button("💾 Save Changes"):
     save_area_config(area_cfg)
 
 
+# ==================================================
+# USER MANAGEMENT
+# ==================================================
+st.markdown("---")
+with st.expander("User Management — Create or Update User Accounts", expanded=False):
+    from aero.auth.service import upsert_user as _upsert_user, list_users as _list_users, VALID_ROLES as _VALID_ROLES
+
+    st.markdown("Use this form to create a new user or update the password / role of an existing user.")
+
+    um_c1, um_c2 = st.columns(2)
+    with um_c1:
+        um_uid  = st.text_input("User ID (login name)", key="um_user_id")
+        um_role = st.selectbox("Role", sorted(_VALID_ROLES), key="um_role")
+    with um_c2:
+        um_pwd  = st.text_input("Password", type="password", key="um_password")
+        um_name = st.text_input("Display Name (optional)", key="um_display_name")
+
+    if st.button("Create / Update User", key="um_submit_btn"):
+        if um_uid and um_pwd:
+            ok, msg = _upsert_user(um_uid, um_pwd, um_role, um_name)
+            if ok:
+                st.success(msg)
+            else:
+                st.error(msg)
+        else:
+            st.warning("User ID and Password are both required.")
+
+    st.markdown("##### Current Users")
+    _df_users = _list_users()
+    if _df_users.empty:
+        st.info("No users found.")
+    else:
+        st.dataframe(_df_users, use_container_width=True, hide_index=True)
+
+
 # ---------------- LOGOUT BUTTON ----------------
 col_c, col_btn = st.columns([8, 1])
 with col_btn:

@@ -2,10 +2,133 @@ import streamlit as st
 import pandas as pd
 import io
 from aero.ui.header import render_header, render_footer
+from aero.auth.service import get_current_user
 
-# Apply global styles
+# ── Role detection ───────────────────────────────────────────────────────────
+_user = get_current_user()
+_role = (_user.get("role", "") if _user else "")
 
-# Render shared header (logo + title)
+# ============================================================
+# LEADERSHIP — dedicated overview page (no emojis)
+# ============================================================
+if _role == "Leadership":
+    render_header(
+        "EXECUTIVE DASHBOARD",
+        "Leadership Analytics | FedEx Planning & Engineering",
+        logo_height=80,
+        badge="LEADERSHIP",
+    )
+
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#FAFAFA 0%,#FFFFFF 100%);
+        border-left:5px solid #4D148C;border-radius:8px;padding:1.2rem 1.5rem;
+        margin-bottom:1.5rem;box-shadow:0 1px 4px rgba(0,0,0,0.07);">
+        <div style="font-weight:700;color:#1A1A1A;font-size:17px;
+            text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px;">
+            About the Executive Dashboard
+        </div>
+        <p style="color:#555;font-size:13px;line-height:1.7;margin:0;">
+            The Executive Dashboard provides a consolidated, read-only view of
+            operational health and performance analytics across all FedEx divisions.
+            Select a division tab in the <strong>Executive Dashboard</strong> page to
+            view its dedicated report. Each tab is fully independent — data from one
+            division does not affect another.
+        </p>
+    </div>""", unsafe_allow_html=True)
+
+    # Division overview cards
+    st.markdown("""
+    <div style="font-weight:700;color:#333;font-size:13px;text-transform:uppercase;
+        letter-spacing:0.6px;margin-bottom:10px;">Division Overview</div>""",
+        unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown("""
+        <div style="background:#FFFFFF;border:1px solid #E3E3E3;border-top:4px solid #4D148C;
+            border-radius:10px;padding:1.1rem 1.25rem;box-shadow:0 1px 4px rgba(0,0,0,0.07);min-height:160px;">
+            <div style="font-size:12px;font-weight:800;color:#4D148C;text-transform:uppercase;
+                letter-spacing:0.7px;margin-bottom:8px;border-bottom:1px solid #F0E8FF;
+                padding-bottom:6px;">Station / Hub</div>
+            <p style="font-size:12px;color:#555;line-height:1.65;margin:0;">
+                Displays health status reports published by Facility teams across
+                Stations and Hubs. Covers Area, Resource, and Courier monitoring
+                with breakdown by Healthy, Review, and Critical classifications.
+                Volume trend charts and critical-location tables are also available.
+            </p>
+        </div>""", unsafe_allow_html=True)
+    with c2:
+        st.markdown("""
+        <div style="background:#FFFFFF;border:1px solid #E3E3E3;border-top:4px solid #1A5276;
+            border-radius:10px;padding:1.1rem 1.25rem;box-shadow:0 1px 4px rgba(0,0,0,0.07);min-height:160px;">
+            <div style="font-size:12px;font-weight:800;color:#1A5276;text-transform:uppercase;
+                letter-spacing:0.7px;margin-bottom:8px;border-bottom:1px solid #E8F4FB;
+                padding-bottom:6px;">Gateway</div>
+            <p style="font-size:12px;color:#555;line-height:1.65;margin:0;">
+                Will present inter-hub linehaul and air gateway performance metrics
+                once Phase 2 integration is complete. Covers on-time departure,
+                linehaul utilization, gateway volume, cross-dock efficiency, and
+                route-level performance benchmarks.
+            </p>
+        </div>""", unsafe_allow_html=True)
+    with c3:
+        st.markdown("""
+        <div style="background:#FFFFFF;border:1px solid #E3E3E3;border-top:4px solid #7B241C;
+            border-radius:10px;padding:1.1rem 1.25rem;box-shadow:0 1px 4px rgba(0,0,0,0.07);min-height:160px;">
+            <div style="font-size:12px;font-weight:800;color:#7B241C;text-transform:uppercase;
+                letter-spacing:0.7px;margin-bottom:8px;border-bottom:1px solid #FDECEA;
+                padding-bottom:6px;">Services</div>
+            <p style="font-size:12px;color:#555;line-height:1.65;margin:0;">
+                Will present SLA compliance, customer contact volume,
+                and first-attempt delivery rates once Phase 2 integration is complete.
+                Covers service failure categorization and NPS integration
+                across all service types and station divisions.
+            </p>
+        </div>""", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Navigation guidance
+    st.markdown("""
+    <div style="background:linear-gradient(135deg,#FAFAFA 0%,#FFFFFF 100%);
+        border-left:5px solid #FF6200;border-radius:8px;padding:1.1rem 1.5rem;
+        box-shadow:0 1px 4px rgba(0,0,0,0.07);">
+        <div style="font-weight:700;color:#1A1A1A;font-size:13px;text-transform:uppercase;
+            letter-spacing:0.5px;margin-bottom:10px;">How to Navigate</div>
+        <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <tr style="border-bottom:1px solid #F0F0F0;">
+                <td style="padding:7px 10px;font-weight:700;color:#4D148C;
+                    width:32px;vertical-align:top;">1</td>
+                <td style="padding:7px 10px;font-weight:600;color:#333;
+                    width:190px;vertical-align:top;">Open Executive Dashboard</td>
+                <td style="padding:7px 10px;color:#555;">
+                    Select <strong>Executive Dashboard</strong> from the left navigation panel
+                    to open the main analytics page.</td>
+            </tr>
+            <tr style="border-bottom:1px solid #F0F0F0;">
+                <td style="padding:7px 10px;font-weight:700;color:#4D148C;vertical-align:top;">2</td>
+                <td style="padding:7px 10px;font-weight:600;color:#333;vertical-align:top;">Select Division Tab</td>
+                <td style="padding:7px 10px;color:#555;">
+                    Choose from <strong>STATION / HUB</strong>, <strong>GATEWAY</strong>, or
+                    <strong>SERVICES</strong> tabs at the top of the page. Each tab is
+                    independently scoped to its division.</td>
+            </tr>
+            <tr>
+                <td style="padding:7px 10px;font-weight:700;color:#4D148C;vertical-align:top;">3</td>
+                <td style="padding:7px 10px;font-weight:600;color:#333;vertical-align:top;">Review the Report</td>
+                <td style="padding:7px 10px;color:#555;">
+                    Station / Hub data populates automatically from published Facility health
+                    reports. Gateway and Services tabs will activate in Phase 2.</td>
+            </tr>
+        </table>
+    </div>""", unsafe_allow_html=True)
+
+    render_footer("LEADERSHIP")
+    st.stop()
+
+# ============================================================
+# ALL OTHER ROLES — standard home page
+# ============================================================
 render_header(
     "AERO - Automated Evaluation Of Resource Occupancy",
     "FedEx Planning & Engineering | AREA, RESOURCE & COURIER PLANNING",

@@ -34,3 +34,21 @@ def init_session_state() -> None:
     # ── UI state ────────────────────────────────────────────────────────────
     if "active_tab" not in st.session_state:
         st.session_state["active_tab"] = None
+
+    # ── Hub section state (mirrored namespace for Hub Planner) ──────────────
+    if "hub_famis_data" not in st.session_state:
+        st.session_state["hub_famis_data"] = None
+    if "hub_famis_data_raw" not in st.session_state:
+        st.session_state["hub_famis_data_raw"] = None
+    if "hub_master_data" not in st.session_state:
+        st.session_state["hub_master_data"] = None
+    if "hub_famis_station" not in st.session_state:
+        st.session_state["hub_famis_station"] = ""
+    if "hub_selected_date" not in st.session_state:
+        st.session_state["hub_selected_date"] = None
+    if "hub_famis_file_type" not in st.session_state:
+        st.session_state["hub_famis_file_type"] = "Daily"
+    if "hub_famis_file_type_saved" not in st.session_state:
+        st.session_state["hub_famis_file_type_saved"] = "Daily"
+    if "hub_health_active_tab" not in st.session_state:
+        st.session_state["hub_health_active_tab"] = "AREA"
