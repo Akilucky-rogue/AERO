@@ -292,21 +292,30 @@ with left_col:
         <div class="lp-div"></div>
     """, unsafe_allow_html=True)
 
-    with st.form("login_form"):
-        user_id = st.text_input("User ID", placeholder="Enter your User ID")
-        password = st.text_input("Password", type="password", placeholder="Enter your password")
+    with st.form("login_form", clear_on_submit=True):
+        user_id = st.text_input("User ID", placeholder="Enter your User ID", key="login_user_id")
+        password = st.text_input("Password", type="password", placeholder="Enter your password", key="login_password")
         submitted = st.form_submit_button("Sign In", use_container_width=True)
 
         if submitted:
             if not user_id or not password:
-                st.error("Please enter both User ID and Password.")
+                st.error("❌ Please enter both User ID and Password.")
             else:
-                user = authenticate(user_id, password)
-                if user:
-                    login_user(user)
-                    st.rerun()
-                else:
-                    st.error("Invalid credentials. Please try again.")
+                try:
+                    user = authenticate(user_id.strip(), password.strip())
+                    if user:
+                        login_user(user)
+                        st.success(f"✓ Welcome, {user.get('display_name', user_id)}!")
+                        st.balloons()
+                        st.session_state.pop("login_user_id", None)
+                        st.session_state.pop("login_password", None)
+                        import time
+                        time.sleep(1.5)
+                        st.rerun()
+                    else:
+                        st.error("❌ Invalid User ID or Password. Please try again.")
+                except Exception as e:
+                    st.error(f"❌ Login error: {str(e)}")
 
     st.markdown('<div class="lp-foot">Powered by AERO &nbsp;·&nbsp; FedEx Planning &amp; Engineering</div>', unsafe_allow_html=True)
 

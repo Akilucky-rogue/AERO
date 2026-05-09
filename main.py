@@ -32,6 +32,30 @@ seed_users()
 
 # Initialize all session state keys with defaults (CQ-009)
 init_session_state()
+# ============================================================
+# ⚠️ DEMO MODE: FAKE SESSION INJECTOR (TEMPORARY)
+# ------------------------------------------------------------
+# This block bypasses login by injecting a mock user session.
+# - Safe to delete entirely after demo
+# - Does NOT modify core auth logic
+# - Keeps role-based navigation intact
+#
+# TO REMOVE LATER:
+# უბრალოდ delete this entire block — no other changes needed.
+# ============================================================
+
+DEMO_MODE = False  # 🔁 Set to True for demo bypass (uses fake session)
+
+if DEMO_MODE:
+    # NOTE: For demo mode to work properly, use the correct session keys
+    st.session_state["aero_authenticated"] = True
+    st.session_state["aero_user"] = {
+        "user_id": "demo_user",
+        "display_name": "Demo User",
+        "role": "Services",  # 🔁 Change role if you want different view
+    }
+
+# ============================================================
 
 # Apply global styles (CSS variables, fonts, brand colours)
 apply_styles()

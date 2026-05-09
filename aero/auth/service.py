@@ -115,9 +115,20 @@ def seed_users() -> None:
         )
         return
 
-    df = pd.DataFrame(rows)
-    df.to_excel(USERS_DB_PATH, index=False, sheet_name="Users")
-    logger.info("seed_users: created %s with %d user(s).", USERS_DB_PATH, len(rows))
+    try:
+        df = pd.DataFrame(rows)
+        # Ensure proper data types
+        df["user_id"] = df["user_id"].astype(str)
+        df["display_name"] = df["display_name"].astype(str)
+        df["role"] = df["role"].astype(str)
+        df["password_hash"] = df["password_hash"].astype(str)
+        df["is_active"] = df["is_active"].astype(bool)
+        
+        df.to_excel(USERS_DB_PATH, index=False, sheet_name="Users")
+        logger.info("seed_users: created %s with %d user(s).", USERS_DB_PATH, len(rows))
+    except Exception as exc:
+        logger.error("seed_users: failed to create AERO_USERS.xlsx: %s", exc)
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -152,6 +163,8 @@ def upsert_user(
         os.makedirs(DATA_DIR, exist_ok=True)
         if os.path.exists(USERS_DB_PATH):
             df = pd.read_excel(USERS_DB_PATH, sheet_name="Users")
+            # Ensure proper data types on read
+            df = df.astype(str).applymap(lambda x: x.strip() if isinstance(x, str) else x)
         else:
             df = pd.DataFrame(
                 columns=["user_id", "display_name", "role", "password_hash", "is_active"]
@@ -159,8 +172,13 @@ def upsert_user(
 
         hashed = _hash_password(password)
 
-        if user_id in df["user_id"].astype(str).values:
-            mask = df["user_id"].astype(str) == user_id
+        # Case-insensitive lookup
+        user_id_lower = user_id.lower()
+        existing_match = df[df["user_id"].str.lower() == user_id_lower]
+        
+        if not existing_match.empty:
+            mask = df["user_id"].str.lower() == user_id_lower
+            df.loc[mask, "user_id"]       = user_id
             df.loc[mask, "display_name"]  = display_name
             df.loc[mask, "role"]          = role
             df.loc[mask, "password_hash"] = hashed
@@ -177,6 +195,13 @@ def upsert_user(
             df = pd.concat([df, new_row], ignore_index=True)
             action = "created"
 
+        # Ensure proper data types before writing
+        df["user_id"] = df["user_id"].astype(str)
+        df["display_name"] = df["display_name"].astype(str)
+        df["role"] = df["role"].astype(str)
+        df["password_hash"] = df["password_hash"].astype(str)
+        df["is_active"] = df["is_active"].astype(bool)
+        
         df.to_excel(USERS_DB_PATH, index=False, sheet_name="Users")
         logger.info("upsert_user: %s user '%s' with role '%s'.", action, user_id, role)
         return True, f"User '{user_id}' {action} successfully with role '{role}'."
@@ -213,29 +238,52 @@ def authenticate(user_id: str, password: str) -> dict | None:
         return None
 
     if df.empty:
+        logger.warning("authenticate: AERO_USERS.xlsx is empty")
         return None
 
-    match = df[df["user_id"].str.strip().str.lower() == user_id.strip().lower()]
+    # Ensure all columns are strings and stripped of whitespace
+    df = df.astype(str).applymap(lambda x: x.strip() if isinstance(x, str) else x)
+    
+    # Case-insensitive user lookup
+    user_id_clean = user_id.strip().lower()
+    match = df[df["user_id"].str.lower() == user_id_clean]
+    
     if match.empty:
+        logger.debug("authenticate: user '%s' not found in AERO_USERS.xlsx", user_id)
         return None
 
     row = match.iloc[0]
 
-    if not row.get("is_active", True):
+    # Check if user is active
+    is_active = row.get("is_active", "True")
+    if isinstance(is_active, str):
+        is_active = is_active.lower() in ("true", "1", "yes")
+    
+    if not is_active:
+        logger.warning("authenticate: user '%s' is not active", user_id)
         return None
 
-    stored_hash = str(row.get("password_hash", ""))
+    stored_hash = str(row.get("password_hash", "")).strip()
+    if not stored_hash:
+        logger.error("authenticate: user '%s' has no password hash", user_id)
+        return None
+
+    # Verify password
     if not _verify_password(password, stored_hash):
+        logger.warning("authenticate: invalid password for user '%s'", user_id)
         return None
 
     # Transparently upgrade legacy SHA-256 hash to bcrypt on successful login
     if _needs_rehash(stored_hash):
         _upgrade_password_hash(row["user_id"], password, df)
 
+    logger.info("authenticate: successful login for user '%s' (role: %s)", 
+                row.get("user_id"), row.get("role"))
+    
     return {
-        "user_id":      row["user_id"],
-        "display_name": row["display_name"],
-        "role":         row["role"],
+        "user_id":      str(row.get("user_id", "")).strip(),
+        "display_name": str(row.get("display_name", "")).strip(),
+        "role":         str(row.get("role", "")).strip(),
     }
 
 
