@@ -1,0 +1,8 @@
+{
+    "AREA_CONSTANTS": {
+        "PALLET_AREA": 16.0,
+        "AISLE_PERCENT": 0.15,
+        "CAGE_PALLET_AREA": 25.0,
+        "STACKING_PER_PALLET": 20
+    }
+}
