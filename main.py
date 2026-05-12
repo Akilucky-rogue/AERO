@@ -156,7 +156,6 @@ elif role == "Leadership":
         ],
         "LEADERSHIP": [
             st.Page("pages/leadership_dashboard.py", title="Executive Dashboard", icon="👔"),
-            st.Page("pages/nsl_analytics.py", title="NSL Analytics", icon="📦"),
         ],
     }
 elif role == "Operations":
@@ -174,7 +173,6 @@ elif role == "Operations":
         ],
         "ANALYTICS": [
             st.Page("pages/leadership_dashboard.py", title="Analytics Overview", icon="📊"),
-            st.Page("pages/nsl_analytics.py", title="NSL Analytics", icon="📦"),
         ],
     }
 else:
