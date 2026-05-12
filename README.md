@@ -1,175 +1,136 @@
-# AERO — Automated Evaluation of Resource Occupancy
+# AERO — Automated Evaluation Of Resource Occupancy
 
-**FedEx Facility Planning & Health Monitoring Platform**
-
-AERO is a Streamlit-based internal tool for FedEx operations that automates resource occupancy evaluation. It ingests FAMIS volume data to calculate staffing requirements, operational area needs, and courier capacity across multiple facility types.
+FedEx Planning & Engineering | Internal Operations Platform
 
 ---
 
-## Architecture
+## Quick Start
 
-```
-main.py                  — App entry point: auth gate, navigation, session init
-pages/                   — Streamlit multi-page app (one file per page)
-aero/
-  auth/service.py        — bcrypt-based authentication against Excel credential store
-  config/settings.py     — TACT & area configuration (JSON-backed, cached)
-  core/                  — Pure business logic: area, resource, courier, health calculators
-  data/
-    excel_store.py       — FAMIS upload & report persistence (Excel)
-    station_store.py     — Per-station planner workbook CRUD (Excel)
-    postgres.py          — PostgreSQL health-data persistence (pooled connections)
-  db/schema.sql          — PostgreSQL schema with CHECK constraints and FK
-  ui/                    — Shared UI components: styles, sidebar, header, session state
-assets/                  — Static assets (logo, fonts)
-data/                    — Runtime data directory (gitignored — xlsx files created here)
-tests/                   — pytest unit tests for all aero/core/ and security functions
-```
+### Option 1 — PowerShell (recommended, always works)
 
-### Dual Storage Strategy
+```powershell
+cd C:\Users\NEW\Documents\Aero-MAIN
 
-| Store | Purpose | Format |
-|---|---|---|
-| Excel (`data/*.xlsx`) | Transient planning data; per-station Area / Resource / Courier inputs | openpyxl |
-| PostgreSQL (`station_health`) | Persistent health-monitor summaries; queryable across uploads | psycopg2 pool |
-
-The two stores are intentionally independent — Excel holds live planning state while PostgreSQL holds time-series health snapshots. No automatic synchronization is performed.
-
----
-
-## Prerequisites
-
-- Python 3.11+
-- PostgreSQL 14+ (optional — app runs in Excel-only mode if DB is unavailable)
-- Git
-
----
-
-## Setup
-
-### 1. Clone and create a virtual environment
-
-```bash
-git clone https://github.com/Shubzzz10/AERO.git
-cd AERO
+# First time only: create venv and install deps
 python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS/Linux
-source .venv/bin/activate
-pip install -r requirements.txt
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+.venv\Scripts\python.exe setup_users.py
+
+# Every time to start the app
+.venv\Scripts\python.exe -m streamlit run main.py
 ```
 
-### 2. Configure environment variables
+App opens at **http://localhost:8501**
 
-```bash
-cp .env.example .env
-```
+---
 
-Edit `.env` and fill in real values:
+### Option 2 — Double-click `start_aero.bat`
 
-| Variable | Required | Description |
+Handles venv creation and dependency install automatically on first run.
+If Python is not found, use Option 1 (PowerShell) instead.
+
+> **Note:** If you see `python not found` in the bat file, your Python
+> is installed but not on the system PATH for CMD. PowerShell Option 1
+> will always work regardless of PATH configuration.
+
+---
+
+## Login Credentials
+
+| Role | User ID | Password |
 |---|---|---|
-| `POSTGRES_HOST` | No | DB host (default: `localhost`) |
-| `POSTGRES_PORT` | No | DB port (default: `5432`) |
-| `POSTGRES_DB` | No | DB name (default: `aero_planner`) |
-| `POSTGRES_USER` | No | DB user (default: `postgres`) |
-| `POSTGRES_PASSWORD` | **Yes** | DB password — no default, must be set |
-| `AERO_SEED_USER_<N>_ID` | First run | Login ID for user slot N (1–10) |
-| `AERO_SEED_USER_<N>_PASS` | First run | Password for user slot N (plain, hashed on write) |
-| `AERO_SEED_USER_<N>_ROLE` | First run | Role: `Facility`, `Gateway`, `Services`, `Leadership` |
-| `AERO_SEED_USER_<N>_NAME` | No | Display name for user slot N |
+| Facility | `facility_user` | `FedEx@2025` |
+| Gateway | `gateway_user` | `FedEx@2025` |
+| Services | `services_user` | `FedEx@2025` |
+| Leadership | `leadership_user` | `FedEx@2025` |
+| Operations | `operations_user` | `FedEx@2025` |
+| Admin | `admin` | `FedEx@2025` |
 
-> **Important:** `.env` is gitignored and must never be committed. All credentials live in `.env` only.
+---
 
-### 3. Set up the PostgreSQL database (if using DB features)
+## Project Structure
 
-```bash
-# Create the database
-psql -U postgres -c "CREATE DATABASE aero_planner;"
-
-# Schema is applied automatically by the app on first use.
-# To apply manually:
-psql -U postgres -d aero_planner -f aero/db/schema.sql
+```
+Aero-MAIN/
+|-- main.py                  # App entry point, role-based routing
+|-- start_aero.bat           # Windows one-click launcher
+|-- requirements.txt         # Python dependencies
+|-- setup_users.py           # Seeds default user accounts
+|
+|-- pages/
+|   |-- home.py              # Role-aware landing page
+|   |-- login.py             # Split-screen login
+|   |-- health_monitor.py    # Station health monitoring
+|   |-- hub_health_monitor.py
+|   |-- station_planner.py   # Area / Resource / Courier planners
+|   |-- hub_planner.py
+|   |-- services_ops.py      # Delay prediction engine (NSL + AWB)
+|   |-- leadership_dashboard.py
+|   |-- gateway_ops.py       # Phase 2 placeholder
+|   `-- admin_controls.py
+|
+|-- aero/
+|   |-- core/
+|   |   |-- delay_predictor.py   # Bayesian NSL risk model
+|   |   |-- area_calculator.py
+|   |   |-- resource_calculator.py
+|   |   `-- courier_calculator.py
+|   |-- data/
+|   |   |-- nsl_store.py     # NSL parsing + model/prediction storage
+|   |   |-- excel_store.py
+|   |   `-- postgres.py      # Optional (app runs without it)
+|   |-- ui/
+|   |   |-- styles.py        # Global CSS design tokens (FedEx brand)
+|   |   |-- header.py        # Topbar + user badge
+|   |   |-- components.py    # Shared components (KPI cards, banners, etc.)
+|   |   `-- session.py       # Session state initialisation
+|   `-- auth/
+|       `-- service.py       # bcrypt auth, role management
+|
+|-- data/                    # Runtime data (model JSON, prediction Excel)
+|-- assets/                  # FedEx logo, brand font
+`-- tests/                   # Unit tests
 ```
 
-### 4. First-run user seeding
-
-On first startup, if `data/AERO_USERS.xlsx` does not exist, the app reads `AERO_SEED_USER_*` env vars to create it. Passwords are hashed with bcrypt (work factor 12) and the plaintext is never stored.
-
-If no seed vars are set, `AERO_USERS.xlsx` must be created manually with columns: `user_id`, `display_name`, `role`, `password_hash`, `is_active`.
-
-### 5. Run the application
-
-```bash
-streamlit run main.py
-```
-
 ---
 
-## Running Tests
-
-```bash
-# From the project root, with the venv activated:
-pip install pytest
-pytest tests/ -v
-```
-
-Test files:
-
-| File | Coverage |
-|---|---|
-| `tests/test_health.py` | `aero.core.health` — all branches of `calculate_health_status`, `get_summary_stats` |
-| `tests/test_area_calculator.py` | `aero.core.area_calculator` — facility models A/B/C/D, area health status |
-| `tests/test_resource_calculator.py` | `aero.core.resource_calculator` — OSA, LASA, Dispatcher, Trace Agent |
-| `tests/test_security.py` | Formula injection sanitizer, path traversal guard, bcrypt hashing |
-
----
-
-## Security Notes
-
-| Finding | Remediation |
-|---|---|
-| SEC-001: No plaintext credentials in source | First-run seeding reads from `.env` vars only |
-| SEC-003: bcrypt hashing | `_hash_password()` uses `bcrypt.hashpw` with gensalt; SHA-256 hashes auto-upgrade on login |
-| SEC-004: No empty DB password | `POSTGRES_PASSWORD` has no default; app raises `RuntimeError` if unset |
-| SEC-006: Formula injection | All Excel writes pass through `_sanitize_cell()` / `_sanitize_df()` |
-| SEC-007: Path traversal | `_safe_path()` in `station_store.py` validates all paths against `DATA_DIR` |
-| SEC-011: XSRF protection | `.streamlit/config.toml` sets `enableXsrfProtection = true`, `enableCORS = false` |
-
-For production deployments, add a reverse proxy (nginx/Caddy) that sets:
-- `Content-Security-Policy`
-- `X-Frame-Options: DENY`
-- `Strict-Transport-Security`
-
----
-
-## Configuration
-
-TACT values (time-allocation coefficients) and area constants are managed via the **Admin Configuration** page (Facility role only) and are persisted to:
-
-- `aero/config/tact.json` — OSA, LASA, Dispatcher, Trace Agent, Courier TACT values
-- `aero/config/area.json` — Area planner constants (pallet area, aisle %, cage %, etc.)
-
-Both files are loaded with a 5-minute in-memory cache (`@st.cache_data(ttl=300)`) and the cache is invalidated automatically whenever a config save occurs.
-
----
-
-## Role-Based Access
+## Roles & Access
 
 | Role | Pages |
 |---|---|
-| Facility | Home, Station Planner, Hub Planner, Admin Configuration |
-| Gateway | Home, Gateway Operations |
-| Services | Home, Services Operations |
-| Leadership | Home, Executive Dashboard |
+| **Facility** | Home, Station Planner (Area/Resource/Courier), Hub Planner, Health Monitor, Admin |
+| **Services** | Home, Services Operations (Delay Prediction) |
+| **Gateway** | Home, Gateway Operations |
+| **Leadership** | Home, Executive Dashboard |
+| **Operations** | All of the above |
 
 ---
 
-## Deployment Notes
+## Services Module — Delay Prediction Engine
 
-1. Set all required `.env` variables in your hosting environment (never commit `.env`)
-2. Ensure `data/` is a persistent volume (not ephemeral)
-3. Set `POSTGRES_PASSWORD` as a secret in your deployment platform
-4. Point Streamlit's `server.port` and `server.baseUrlPath` appropriately
-5. Add a reverse proxy with TLS termination and security headers
+1. Log in as `services_user`
+2. Go to **Services Operations → Training Data**
+3. Upload the NSL historical file (tab-separated `.txt`, `.csv`, or `.xlsx`)
+   - Required columns: `orig_loc_cd`, `dest_loc_cd`, `NSL_OT_VOL`
+4. Click **Train Model** — model persists across sessions
+5. Go to **Daily Prediction**, upload today's AWB file
+6. Click **Run Prediction** — results show Critical / High Risk / At Risk / Passing
+
+---
+
+## Dependencies
+
+Python 3.10+ required. Key packages:
+
+- `streamlit` — web UI framework
+- `pandas`, `openpyxl` — data processing and Excel I/O
+- `plotly` — charts
+- `bcrypt` — password hashing
+- `python-dotenv` — environment variables
+- `psycopg2-binary` *(optional)* — PostgreSQL; app runs in Excel-only mode without it
+
+---
+
+## Branch
+
+Active development branch: **`akshat-vora`**
