@@ -39,13 +39,11 @@ If Python is not found, use Option 1 (PowerShell) instead.
 
 | Role | User ID | Password |
 |---|---|---|
-| Facility | `facility_user` | `FedEx@2025` |
-| Gateway | `gateway_user` | `FedEx@2025` |
-| Services | `services_user` | `FedEx@2025` |
-| Leadership | `leadership_user` | `FedEx@2025` |
-| Operations | `operations_user` | `FedEx@2025` |
-| Admin | `admin` | `FedEx@2025` |
-
+| **Operations** (all access) | `admin` | `Admin@123456` |
+| **Facility** | `facility_mgr` | `Facility@2024` |
+| **Gateway** | `gateway_coord` | `Gateway@2024` |
+| **Services** | `services_lead` | `Services@2024` |
+| **Leadership** | `executive` | `Leadership@2024` |
 ---
 
 ## Project Structure
