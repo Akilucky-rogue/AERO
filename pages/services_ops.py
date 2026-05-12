@@ -2,35 +2,32 @@
 # AERO — Services Operations
 # Delay Prediction Engine — powered by NSL historical data
 #
-# Tab 1 · TRAINING DATA   — upload NSL file, review stats
-# Tab 2 · MODEL           — view model profile & risk breakdown
+# Tab 1 · TRAINING DATA    — upload NSL file, review stats
+# Tab 2 · MODEL            — network profile & risk breakdown
 # Tab 3 · DAILY PREDICTION — upload AWB file, run predictions
-# Tab 4 · HISTORY         — past prediction sessions
+# Tab 4 · HISTORY          — past prediction sessions
 # ============================================================
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 
 from aero.ui.header import render_header, render_footer
+from aero.ui.components import (
+    render_kpi_card,
+    render_kpi_row,
+    render_info_banner,
+    _PURPLE, _ORANGE, _GREEN, _RED, _YELLOW, _GREY,
+)
 from aero.data.nsl_store import (
     parse_nsl_file,
     parse_awb_file,
     save_model,
     load_model,
-    model_trained,
     delete_model,
     save_prediction_results,
     load_prediction_history,
 )
 from aero.core.delay_predictor import build_model, predict_batch, model_summary
-
-# ── Brand colours ────────────────────────────────────────────
-_PURPLE = "#4D148C"
-_ORANGE = "#FF6200"
-_GREEN  = "#008A00"
-_RED    = "#DE002E"
-_YELLOW = "#FFB800"
-_GREY   = "#888888"
 
 # ────────────────────────────────────────────────────────────
 render_header(
@@ -40,7 +37,7 @@ render_header(
     badge="SERVICES",
 )
 
-# ── Load persisted model on page load ────────────────────────
+# ── Load persisted model once per session ────────────────────
 if "svc_model" not in st.session_state:
     _m, _mm = load_model()
     st.session_state["svc_model"]      = _m
@@ -59,33 +56,25 @@ tab_train, tab_model, tab_predict, tab_history = st.tabs([
 # ════════════════════════════════════════════════════════════
 with tab_train:
 
-    st.markdown("""
-    <div style="background:linear-gradient(135deg,#F7F3FF,#FFFFFF);border-left:5px solid #4D148C;
-        border-radius:10px;padding:16px 20px;margin-bottom:20px;">
-        <div style="font-weight:800;color:#1A1A1A;font-size:14px;text-transform:uppercase;
-            letter-spacing:0.4px;">Upload NSL Historical File</div>
-        <div style="color:#555;font-size:13px;margin-top:6px;">
-            Upload the <b>IN SPAC NSL</b> (or equivalent) file — tab-separated .txt, .csv, or .xlsx.
-            The engine reads NSL_OT_VOL, MBG_OT_VOL, origin/destination loc codes, service type,
-            ship date, commit date, and POF cause columns to build the statistical delay model.
-            <br><br>
-            <b>Required columns:</b> orig_loc_cd &nbsp;·&nbsp; dest_loc_cd &nbsp;·&nbsp; NSL_OT_VOL
-            &nbsp;&nbsp;|&nbsp;&nbsp;
-            <b>Improves accuracy:</b> svc_commit_dt &nbsp;·&nbsp; shp_dt &nbsp;·&nbsp;
-            dest_market_cd &nbsp;·&nbsp; pof_cause &nbsp;·&nbsp; Service
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    render_info_banner(
+        "Upload NSL Historical File",
+        "Upload the <b>IN SPAC NSL</b> (or equivalent) file — tab-separated .txt, .csv, or .xlsx. "
+        "The engine reads NSL_OT_VOL, MBG_OT_VOL, origin/destination loc codes, service type, "
+        "ship date, commit date, and POF cause columns to build the statistical delay model.<br><br>"
+        "<b>Required:</b> orig_loc_cd &nbsp;·&nbsp; dest_loc_cd &nbsp;·&nbsp; NSL_OT_VOL "
+        "&nbsp;&nbsp;|&nbsp;&nbsp; "
+        "<b>Improves accuracy:</b> svc_commit_dt &nbsp;·&nbsp; shp_dt &nbsp;·&nbsp; "
+        "dest_market_cd &nbsp;·&nbsp; pof_cause &nbsp;·&nbsp; Service",
+    )
 
     # ── Model status banner ──────────────────────────────────
-    _m   = st.session_state.get("svc_model")
-    _mm  = st.session_state.get("svc_model_meta")
+    _m  = st.session_state.get("svc_model")
+    _mm = st.session_state.get("svc_model_meta")
     if _m and not _m.get("empty") and _mm:
         trained_at = str(_mm.get("trained_at", "—"))[:16].replace("T", " ")
         st.success(
             f"✅ Model trained — {_mm.get('total_rows', '?'):,} records  |  "
-            f"NSL OT: {_mm.get('nsl_ot_pct', '?')}%  |  "
-            f"Trained: {trained_at} UTC"
+            f"NSL OT: {_mm.get('nsl_ot_pct', '?')}%  |  Trained: {trained_at} UTC"
         )
     else:
         st.warning("⚠️ No model trained yet. Upload an NSL file and click **Train Model** below.")
@@ -102,8 +91,8 @@ with tab_train:
         with st.spinner(f"Parsing {uploaded.name} …"):
             try:
                 df_nsl, nsl_meta = parse_nsl_file(uploaded.read(), uploaded.name)
-                st.session_state["svc_nsl_df"]   = df_nsl
-                st.session_state["svc_nsl_meta"]  = nsl_meta
+                st.session_state["svc_nsl_df"]  = df_nsl
+                st.session_state["svc_nsl_meta"] = nsl_meta
                 st.success(f"✅ Parsed {nsl_meta['total_rows']:,} records successfully.")
             except Exception as e:
                 st.error(f"❌ Parse error: {e}")
@@ -116,23 +105,13 @@ with tab_train:
         st.markdown("---")
         st.markdown("#### File Preview")
 
-        # KPI row
-        c1, c2, c3, c4 = st.columns(4)
-
-        def _kpi(col, label, val, color=_PURPLE):
-            col.markdown(f"""
-            <div style="background:#FAFAFA;border-left:4px solid {color};border-radius:8px;
-                padding:14px 12px;text-align:center;">
-                <div style="font-size:22px;font-weight:800;color:{color};">{val}</div>
-                <div style="font-size:10px;color:#777;font-weight:700;text-transform:uppercase;
-                    letter-spacing:0.8px;margin-top:4px;">{label}</div>
-            </div>""", unsafe_allow_html=True)
-
-        _kpi(c1, "Total Records",  f"{nsl_meta['total_rows']:,}")
-        _kpi(c2, "NSL On-Time",    f"{nsl_meta['nsl_ot_pct']}%", _GREEN)
-        _kpi(c3, "NSL Failed",     f"{nsl_meta['failed']:,}",     _RED)
-        _kpi(c4, "Date Range",
-             f"{nsl_meta['date_min']} → {nsl_meta['date_max']}", _ORANGE)
+        render_kpi_row([
+            {"label": "Total Records",  "value": f"{nsl_meta['total_rows']:,}"},
+            {"label": "NSL On-Time",    "value": f"{nsl_meta['nsl_ot_pct']}%",  "color": _GREEN},
+            {"label": "NSL Failed",     "value": f"{nsl_meta['failed']:,}",      "color": _RED},
+            {"label": "Date Range",     "value": f"{nsl_meta['date_min']} → {nsl_meta['date_max']}",
+             "color": _ORANGE},
+        ])
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -171,15 +150,13 @@ with tab_train:
                             trained_at = pd.Timestamp.utcnow().isoformat()
                             st.session_state["svc_model"]      = model
                             st.session_state["svc_model_meta"] = {
-                                **meta_to_save,
-                                "trained_at": trained_at,
+                                **meta_to_save, "trained_at": trained_at,
                             }
                             summ = model_summary(model)
                             st.success(
                                 f"✅ Model trained on {model['total']:,} records.  "
                                 f"NSL fail rate: {model['nsl_fail_rate']}%  |  "
-                                f"Lanes profiled: {summ['total_lanes']:,}  |  "
-                                f"Hubs: {summ['total_hubs']}"
+                                f"Lanes: {summ['total_lanes']:,}  |  Hubs: {summ['total_hubs']}"
                             )
                             st.balloons()
                     except Exception as e:
@@ -194,7 +171,7 @@ with tab_train:
 
 
 # ════════════════════════════════════════════════════════════
-# TAB 2 — MODEL PROFILE DASHBOARD
+# TAB 2 — MODEL PROFILE
 # ════════════════════════════════════════════════════════════
 with tab_model:
 
@@ -207,32 +184,23 @@ with tab_model:
         thrs = summ.get("thresholds", {})
         meta = st.session_state.get("svc_model_meta") or {}
 
-        # ── Header metrics ───────────────────────────────────
         st.markdown("### Network Profile")
-        c1, c2, c3, c4, c5 = st.columns(5)
-        for col, label, val, color in [
-            (c1, "Total Records",  f"{summ['total_records']:,}",  _PURPLE),
-            (c2, "NSL Fail Rate",  f"{summ['nsl_fail_rate']}%",   _RED),
-            (c3, "MBG Fail Rate",  f"{summ['mbg_fail_rate']}%",   _ORANGE),
-            (c4, "Lanes Profiled", f"{summ['total_lanes']:,}",    _PURPLE),
-            (c5, "Markets",        f"{summ['total_markets']}",    _GREEN),
-        ]:
-            col.markdown(f"""
-            <div style="background:linear-gradient(135deg,#FFFFFF 0%,#F7F3FF 100%);
-                border-left:5px solid {color};border-radius:10px;padding:16px 12px;
-                text-align:center;box-shadow:0 2px 6px rgba(0,0,0,0.06);">
-                <div style="font-size:24px;font-weight:800;color:{color};">{val}</div>
-                <div style="font-size:10px;color:#777;font-weight:700;text-transform:uppercase;
-                    letter-spacing:0.8px;margin-top:4px;">{label}</div>
-            </div>""", unsafe_allow_html=True)
+
+        render_kpi_row([
+            {"label": "Total Records",  "value": f"{summ['total_records']:,}"},
+            {"label": "NSL Fail Rate",  "value": f"{summ['nsl_fail_rate']}%",  "color": _RED},
+            {"label": "MBG Fail Rate",  "value": f"{summ['mbg_fail_rate']}%",  "color": _ORANGE},
+            {"label": "Lanes Profiled", "value": f"{summ['total_lanes']:,}"},
+            {"label": "Markets",        "value": f"{summ['total_markets']}",   "color": _GREEN},
+        ])
 
         st.markdown("<br>", unsafe_allow_html=True)
         st.caption(
             f"Risk thresholds — "
-            f"Passing: <{thrs.get('medium','?')}%  |  "
-            f"At Risk: {thrs.get('medium','?')}–{thrs.get('high','?')}%  |  "
-            f"High Risk: {thrs.get('high','?')}–{thrs.get('critical','?')}%  |  "
-            f"Critical: >{thrs.get('critical','?')}%  |  "
+            f"Passing: <{thrs.get('medium','?')}%  ·  "
+            f"At Risk: {thrs.get('medium','?')}–{thrs.get('high','?')}%  ·  "
+            f"High Risk: {thrs.get('high','?')}–{thrs.get('critical','?')}%  ·  "
+            f"Critical: >{thrs.get('critical','?')}%  ·  "
             f"Data: {meta.get('date_min','?')} → {meta.get('date_max','?')}"
         )
 
@@ -242,23 +210,23 @@ with tab_model:
         # ── Top risky lanes ──────────────────────────────────
         with left:
             st.markdown("#### Top 5 Riskiest Lanes")
-            for l in summ.get("top_risky_lanes", []):
-                pct = l["fail_rate"]
-                color = (_RED   if pct > thrs.get("critical", 70) else
-                         _ORANGE if pct > thrs.get("high", 51)    else _YELLOW)
+            for lane in summ.get("top_risky_lanes", []):
+                pct   = lane["fail_rate"]
+                color = (_RED if pct > thrs.get("critical", 70)
+                         else _ORANGE if pct > thrs.get("high", 51) else _YELLOW)
                 st.markdown(f"""
                 <div style="background:#FAFAFA;border-left:4px solid {color};border-radius:6px;
                     padding:10px 14px;margin:6px 0;display:flex;justify-content:space-between;
                     align-items:center;">
-                    <div style="font-weight:700;color:#1A1A1A;font-size:13px;">{l['lane']}</div>
+                    <div style="font-weight:700;color:#1A1A1A;font-size:13px;">{lane['lane']}</div>
                     <div>
                         <span style="background:{color};color:#fff;padding:3px 10px;
                             border-radius:20px;font-size:12px;font-weight:700;">{pct}%</span>
-                        <span style="color:#888;font-size:11px;margin-left:8px;">{l['volume']:,} pkgs</span>
+                        <span style="color:#888;font-size:11px;margin-left:8px;">{lane['volume']:,} pkgs</span>
                     </div>
                 </div>""", unsafe_allow_html=True)
 
-        # ── Market breakdown bar chart ───────────────────────
+        # ── Market bar chart ─────────────────────────────────
         with right:
             st.markdown("#### Market Breakdown")
             mkt_data = summ.get("market_breakdown", [])
@@ -279,8 +247,7 @@ with tab_model:
                 fig.update_layout(
                     height=260, margin=dict(l=0, r=0, t=10, b=40),
                     yaxis_title="NSL Fail %", xaxis_title="Market",
-                    plot_bgcolor="white", paper_bgcolor="white",
-                    font=dict(size=12),
+                    plot_bgcolor="white", paper_bgcolor="white", font=dict(size=12),
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
@@ -291,9 +258,9 @@ with tab_model:
         with left2:
             st.markdown("#### Top 5 Riskiest Origin Hubs")
             for h in summ.get("top_risky_hubs", []):
-                pct = h["fail_rate"]
-                color = (_RED   if pct > thrs.get("critical", 70) else
-                         _ORANGE if pct > thrs.get("high", 51)    else _YELLOW)
+                pct   = h["fail_rate"]
+                color = (_RED if pct > thrs.get("critical", 70)
+                         else _ORANGE if pct > thrs.get("high", 51) else _YELLOW)
                 st.markdown(f"""
                 <div style="background:#FAFAFA;border-left:4px solid {color};border-radius:6px;
                     padding:10px 14px;margin:6px 0;display:flex;justify-content:space-between;
@@ -306,7 +273,7 @@ with tab_model:
                     </div>
                 </div>""", unsafe_allow_html=True)
 
-        # ── Top POF causes ───────────────────────────────────
+        # ── POF causes ───────────────────────────────────────
         with right2:
             st.markdown("#### Top Failure Causes (POF)")
             sev_color = {"high": _RED, "medium": _ORANGE, "low": _YELLOW}
@@ -335,7 +302,7 @@ with tab_model:
                 col.markdown(f"""
                 <div style="background:#FAFAFA;border-left:5px solid {color};
                     border-radius:8px;padding:14px 16px;">
-                    <div style="font-weight:800;color:{color};font-size:13px;
+                    <div style="font-weight:800;color:{color};font-size:12px;
                         text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">{label}</div>
                     <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;
                         font-size:12px;color:#333;">
@@ -367,21 +334,15 @@ with tab_predict:
     else:
         thrs = active_model.get("thresholds", {})
 
-        st.markdown("""
-        <div style="background:linear-gradient(135deg,#F7F3FF,#FFFFFF);border-left:5px solid #4D148C;
-            border-radius:10px;padding:16px 20px;margin-bottom:20px;">
-            <div style="font-weight:800;color:#1A1A1A;font-size:14px;text-transform:uppercase;
-                letter-spacing:0.4px;">Upload Today's AWB Data</div>
-            <div style="color:#555;font-size:13px;margin-top:6px;">
-                Upload a .csv or .xlsx file with AWBs to score. The engine predicts each package's
-                delay risk based on its origin, destination, service type, and commit date.<br><br>
-                <b>Required:</b> orig_loc_cd &nbsp;·&nbsp; dest_loc_cd
-                &nbsp;&nbsp;|&nbsp;&nbsp;
-                <b>Recommended:</b> shp_trk_nbr &nbsp;·&nbsp; shp_dt &nbsp;·&nbsp;
-                svc_commit_dt &nbsp;·&nbsp; Service &nbsp;·&nbsp; dest_market_cd &nbsp;·&nbsp; pof_cause
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        render_info_banner(
+            "Upload Today's AWB Data",
+            "Upload a .csv or .xlsx file with AWBs to score. The engine predicts each package's "
+            "delay risk based on its origin, destination, service type, and commit date.<br><br>"
+            "<b>Required:</b> orig_loc_cd &nbsp;·&nbsp; dest_loc_cd "
+            "&nbsp;&nbsp;|&nbsp;&nbsp; "
+            "<b>Recommended:</b> shp_trk_nbr &nbsp;·&nbsp; shp_dt &nbsp;·&nbsp; "
+            "svc_commit_dt &nbsp;·&nbsp; Service &nbsp;·&nbsp; dest_market_cd &nbsp;·&nbsp; pof_cause",
+        )
 
         awb_file = st.file_uploader(
             "Drop AWB file here",
@@ -393,9 +354,9 @@ with tab_predict:
             with st.spinner(f"Parsing {awb_file.name} …"):
                 try:
                     df_awb, awb_meta = parse_awb_file(awb_file.read(), awb_file.name)
-                    st.session_state["svc_awb_df"]    = df_awb
-                    st.session_state["svc_awb_meta"]  = awb_meta
-                    st.session_state["svc_pred_df"]   = None
+                    st.session_state["svc_awb_df"]   = df_awb
+                    st.session_state["svc_awb_meta"] = awb_meta
+                    st.session_state["svc_pred_df"]  = None
                     st.success(f"✅ Loaded {awb_meta['total_awbs']:,} AWBs.")
                 except Exception as e:
                     st.error(f"❌ {e}")
@@ -414,14 +375,11 @@ with tab_predict:
             col_run, col_save = st.columns([3, 1])
             with col_run:
                 run_btn = st.button(
-                    "🔮  Run Prediction on All AWBs",
-                    type="primary",
-                    use_container_width=True,
+                    "🔮  Run Prediction on All AWBs", type="primary", use_container_width=True,
                 )
             with col_save:
                 save_btn = st.button(
-                    "💾  Save Session",
-                    use_container_width=True,
+                    "💾  Save Session", use_container_width=True,
                     disabled=(pred_df is None or pred_df.empty),
                 )
 
@@ -434,7 +392,7 @@ with tab_predict:
                 save_prediction_results(pred_df, session_label=awb_meta.get("filename", ""))
                 st.success("✅ Prediction session saved to History tab.")
 
-        # ── Results display ──────────────────────────────────
+        # ── Results ──────────────────────────────────────────
         if pred_df is not None and not pred_df.empty:
             st.markdown("---")
             total   = len(pred_df)
@@ -444,22 +402,13 @@ with tab_predict:
             passing = int((pred_df["Risk Level"] == "Passing").sum())
 
             st.markdown("### Prediction Summary")
-            kc1, kc2, kc3, kc4, kc5 = st.columns(5)
-            for col, label, val, color in [
-                (kc1, "Total AWBs", f"{total:,}",    _PURPLE),
-                (kc2, "Critical",   f"{crit:,}",     _RED),
-                (kc3, "High Risk",  f"{high:,}",     _ORANGE),
-                (kc4, "At Risk",    f"{at_risk:,}",  _YELLOW),
-                (kc5, "Passing",    f"{passing:,}",  _GREEN),
-            ]:
-                col.markdown(f"""
-                <div style="background:linear-gradient(135deg,#FFFFFF 0%,#F7F3FF 100%);
-                    border-left:5px solid {color};border-radius:10px;padding:14px 12px;
-                    text-align:center;box-shadow:0 2px 6px rgba(0,0,0,0.06);margin-bottom:8px;">
-                    <div style="font-size:26px;font-weight:800;color:{color};">{val}</div>
-                    <div style="font-size:10px;color:#777;font-weight:700;text-transform:uppercase;
-                        letter-spacing:0.8px;margin-top:4px;">{label}</div>
-                </div>""", unsafe_allow_html=True)
+            render_kpi_row([
+                {"label": "Total AWBs", "value": f"{total:,}"},
+                {"label": "Critical",   "value": f"{crit:,}",    "color": _RED},
+                {"label": "High Risk",  "value": f"{high:,}",    "color": _ORANGE},
+                {"label": "At Risk",    "value": f"{at_risk:,}", "color": _YELLOW},
+                {"label": "Passing",    "value": f"{passing:,}", "color": _GREEN},
+            ])
 
             # Donut chart
             if total > 0:
@@ -469,18 +418,15 @@ with tab_predict:
                     values=[crit, high, at_risk, passing],
                     hole=0.55,
                     marker_colors=[_RED, _ORANGE, _YELLOW, _GREEN],
-                    textinfo="label+percent",
-                    textfont_size=12,
+                    textinfo="label+percent", textfont_size=12,
                 ))
                 fig_d.update_layout(
-                    height=280,
-                    margin=dict(l=0, r=0, t=10, b=10),
-                    showlegend=False,
-                    paper_bgcolor="white",
+                    height=280, margin=dict(l=0, r=0, t=10, b=10),
+                    showlegend=False, paper_bgcolor="white",
                 )
                 st.plotly_chart(fig_d, use_container_width=True)
 
-            # ── Filterable results table ─────────────────────
+            # ── Filterable table ─────────────────────────────
             st.markdown("### AWB Risk Table")
             fc1, fc2 = st.columns(2)
             with fc1:
@@ -491,12 +437,8 @@ with tab_predict:
                     key="pred_filter_level",
                 )
             with fc2:
-                market_opts = sorted(pred_df["Market"].dropna().unique().tolist())
-                filter_market = st.multiselect(
-                    "Filter by Market",
-                    market_opts,
-                    key="pred_filter_mkt",
-                )
+                market_opts  = sorted(pred_df["Market"].dropna().unique().tolist())
+                filter_market = st.multiselect("Filter by Market", market_opts, key="pred_filter_mkt")
 
             view_df = pred_df.copy()
             if filter_level:
@@ -517,8 +459,7 @@ with tab_predict:
             }
 
             def _style_row(row):
-                style = _row_colors.get(row.get("Risk Level", ""), "")
-                return [style] * len(row)
+                return [_row_colors.get(row.get("Risk Level", ""), "")] * len(row)
 
             styled = disp_df.style.apply(_style_row, axis=1)
             if "Risk %" in disp_df.columns:
@@ -527,24 +468,21 @@ with tab_predict:
             st.dataframe(styled, use_container_width=True, height=420)
             st.caption(f"Showing {len(view_df):,} of {total:,} AWBs")
 
-            # Download
             csv_bytes = view_df.drop(
                 columns=[c for c in view_df.columns if c.startswith("_")], errors="ignore"
             ).to_csv(index=False).encode()
             st.download_button(
-                "⬇️  Download Results as CSV",
-                data=csv_bytes,
-                file_name="AERO_delay_predictions.csv",
-                mime="text/csv",
+                "⬇️  Download Results as CSV", data=csv_bytes,
+                file_name="AERO_delay_predictions.csv", mime="text/csv",
             )
 
-            # ── AWB Drilldown ────────────────────────────────
+            # ── Drilldown ────────────────────────────────────
             st.markdown("---")
             st.markdown("### AWB Drilldown")
             awb_options = view_df["AWB"].dropna().tolist()
             if awb_options:
                 selected = st.selectbox("Select AWB", awb_options, key="drilldown_awb")
-                row = view_df[view_df["AWB"] == selected]
+                row      = view_df[view_df["AWB"] == selected]
                 if not row.empty:
                     r     = row.iloc[0]
                     color = r.get("_color", _GREY)
@@ -578,12 +516,10 @@ with tab_predict:
                     dc1, dc2 = st.columns(2)
                     with dc1:
                         st.markdown("**Risk Signals**")
-                        top_reason = r.get("Top Reason", "—")
-                        st.markdown(f"- {top_reason}")
+                        st.markdown(f"- {r.get('Top Reason', '—')}")
                     with dc2:
                         st.markdown("**Recommended Action**")
-                        action = r.get("Action", "—")
-                        st.markdown(f"- {action}")
+                        st.markdown(f"- {r.get('Action', '—')}")
 
 
 # ════════════════════════════════════════════════════════════
@@ -595,35 +531,32 @@ with tab_history:
 
     if not history:
         st.info(
-            "No prediction sessions saved yet. "
-            "Run a prediction in the **Daily Prediction** tab and click **Save Session**."
+            "No prediction sessions saved yet. Run a prediction in the "
+            "**Daily Prediction** tab and click **Save Session**."
         )
     else:
-        sessions = sorted(history.keys(), reverse=True)
+        sessions         = sorted(history.keys(), reverse=True)
         selected_session = st.selectbox("Select session", sessions, key="hist_session")
         if selected_session:
-            df_h = history[selected_session]
+            df_h    = history[selected_session]
             total_h = len(df_h)
 
             if "Risk Level" in df_h.columns:
-                hc1, hc2, hc3, hc4, hc5 = st.columns(5)
-                for col, label, val in [
-                    (hc1, "Total",    total_h),
-                    (hc2, "Critical", int((df_h["Risk Level"] == "Critical").sum())),
-                    (hc3, "High Risk",int((df_h["Risk Level"] == "High Risk").sum())),
-                    (hc4, "At Risk",  int((df_h["Risk Level"] == "At Risk").sum())),
-                    (hc5, "Passing",  int((df_h["Risk Level"] == "Passing").sum())),
-                ]:
-                    col.metric(label, f"{val:,}")
+                render_kpi_row([
+                    {"label": "Total",    "value": f"{total_h:,}"},
+                    {"label": "Critical", "value": f"{int((df_h['Risk Level']=='Critical').sum()):,}",  "color": _RED},
+                    {"label": "High Risk","value": f"{int((df_h['Risk Level']=='High Risk').sum()):,}", "color": _ORANGE},
+                    {"label": "At Risk",  "value": f"{int((df_h['Risk Level']=='At Risk').sum()):,}",  "color": _YELLOW},
+                    {"label": "Passing",  "value": f"{int((df_h['Risk Level']=='Passing').sum()):,}",  "color": _GREEN},
+                ])
+                st.markdown("<br>", unsafe_allow_html=True)
 
             st.dataframe(df_h, use_container_width=True, height=400)
-
             st.download_button(
                 f"⬇️  Download {selected_session}",
                 data=df_h.to_csv(index=False).encode(),
                 file_name=f"AERO_predictions_{selected_session}.csv",
                 mime="text/csv",
             )
-
 
 render_footer("SERVICES")
