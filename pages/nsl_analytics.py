@@ -76,19 +76,50 @@ def _base_layout(**kwargs):
 # ════════════════════════════════════════════════════════════
 @st.cache_data(show_spinner="Parsing NSL file — this may take 30–60 s for large files…")
 def load_nsl(file_bytes: bytes) -> pd.DataFrame:
-    """Load the full NSL file into a DataFrame (cached per unique file)."""
+    """Load the full NSL file into a DataFrame (cached per unique file).
+
+    Strategy:
+    1. Try fast C-engine in chunks; break gracefully on EOF/parse errors (last row often
+       has an unclosed quoted string in large exports).
+    2. If zero chunks loaded, fall back to the Python engine which handles malformed
+       EOF rows without crashing.
+    """
     chunks = []
     chunk_size = 400_000
-    reader = pd.read_csv(
-        io.BytesIO(file_bytes),
+    _common_kwargs = dict(
         sep=",",
         quotechar='"',
         on_bad_lines="skip",
         low_memory=False,
-        chunksize=chunk_size,
     )
-    for chunk in reader:
-        chunks.append(chunk)
+
+    # ── Pass 1: C engine (fast) — tolerate EOF parse error on last chunk
+    try:
+        reader = pd.read_csv(
+            io.BytesIO(file_bytes),
+            chunksize=chunk_size,
+            **_common_kwargs,
+        )
+        for chunk in reader:
+            chunks.append(chunk)
+    except Exception:
+        # EOF/parse error hit — keep whatever chunks we have so far
+        pass
+
+    # ── Pass 2: Python engine fallback if C engine got nothing at all
+    if not chunks:
+        try:
+            df_fallback = pd.read_csv(
+                io.BytesIO(file_bytes),
+                engine="python",
+                **_common_kwargs,
+            )
+            chunks.append(df_fallback)
+        except Exception as e2:
+            raise RuntimeError(
+                f"Could not parse the NSL file with either parser. Error: {e2}"
+            ) from e2
+
     df = pd.concat(chunks, ignore_index=True)
 
     # ── date parsing
