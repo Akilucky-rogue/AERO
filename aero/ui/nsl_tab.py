@@ -530,4 +530,5 @@ def render_nsl_tab() -> None:
                     xaxis=dict(title="", gridcolor="#F0F0F0"),
                     **_base_layout(),
                 )
-                st.plotly_chart(fig, use_conta
+                st.plotly_chart(fig, use_container_width=True)
+
