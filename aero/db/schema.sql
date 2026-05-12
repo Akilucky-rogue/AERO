@@ -83,3 +83,62 @@ SELECT
         ELSE 'HEALTHY'
     END AS final_status
 FROM station_health;
+
+-- ==============================
+-- NSL ANALYTICS TABLES
+-- ==============================
+
+-- Upload log — one row per file ingested
+CREATE TABLE IF NOT EXISTS nsl_upload_log (
+    id            SERIAL PRIMARY KEY,
+    filename      VARCHAR(255)  NOT NULL,
+    rows_upserted INTEGER       NOT NULL DEFAULT 0,
+    total_rows_db INTEGER       NOT NULL DEFAULT 0,
+    uploaded_at   TIMESTAMP     NOT NULL DEFAULT NOW(),
+    uploaded_by   VARCHAR(100)  DEFAULT 'system'
+);
+
+-- Core shipment data — shp_trk_nbr is the natural unique key
+CREATE TABLE IF NOT EXISTS nsl_shipments (
+    shp_trk_nbr            VARCHAR(60)  PRIMARY KEY,
+    month_date             DATE,
+    weekending_dt          DATE,
+    svc_commit_dt          DATE,
+    shp_dt                 DATE,
+    pckup_scan_dt          DATE,
+    pod_scan_dt            DATE,
+    shpr_co_nm             VARCHAR(255),
+    orig_loc_cd            VARCHAR(20),
+    dest_loc_cd            VARCHAR(20),
+    orig_region            VARCHAR(50),
+    dest_region            VARCHAR(50),
+    orig_market_cd         VARCHAR(20),
+    dest_market_cd         VARCHAR(20),
+    orig_subregion         VARCHAR(50),
+    dest_subregion         VARCHAR(50),
+    service                VARCHAR(50),
+    service_detail         VARCHAR(100),
+    product                VARCHAR(50),
+    bucket                 VARCHAR(50),
+    pof_cause              VARCHAR(20),
+    mbg_class              VARCHAR(20),
+    nsl_ot_vol             SMALLINT,
+    mbg_ot_vol             SMALLINT,
+    nsl_f_vol              SMALLINT,
+    mbg_f_vol              SMALLINT,
+    tot_vol                SMALLINT,
+    pkg_pckup_scan_typ_cd  SMALLINT,
+    pkg_pckup_excp_typ_cd  SMALLINT,
+    pckup_stop_typ_cd      VARCHAR(5),
+    pof_region_cd          VARCHAR(50),
+    pof_loc_cd             VARCHAR(20),
+    updated_at             TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_nsl_month      ON nsl_shipments(month_date);
+CREATE INDEX IF NOT EXISTS idx_nsl_dest_mkt   ON nsl_shipments(dest_market_cd);
+CREATE INDEX IF NOT EXISTS idx_nsl_dest_reg   ON nsl_shipments(dest_region);
+CREATE INDEX IF NOT EXISTS idx_nsl_customer   ON nsl_shipments(shpr_co_nm);
+CREATE INDEX IF NOT EXISTS idx_nsl_service    ON nsl_shipments(service);
+CREATE INDEX IF NOT EXISTS idx_nsl_bucket     ON nsl_shipments(bucket);
+CREATE INDEX IF NOT EXISTS idx_nsl_week       ON nsl_shipments(weekending_dt);

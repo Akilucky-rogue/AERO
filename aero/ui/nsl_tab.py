@@ -139,58 +139,130 @@ def render_nsl_tab() -> None:
 
     render_info_banner(
         "NSL Analytics — India Outbound",
-        "Upload the NSL comma-separated data file to explore Network Service Level "
-        "performance, failure ownership, scan compliance, and customer-level trends. "
-        "Large files (2 M+ rows) are chunked and cached — upload once, filter instantly.",
+        "Upload an NSL data file to save it to the database. Each upload <b>upserts</b> "
+        "records by tracking number — new shipments are added, existing ones are updated. "
+        "Data persists permanently across sessions, restarts, and tab switches.",
         accent=_PURPLE,
     )
 
-    # ── file uploader + session-state persistence ─────────────────────────────
-    # The uploader widget resets when you navigate between tabs, so we keep the
-    # loaded DataFrame in st.session_state["nsl_df"].  A new upload overwrites it;
-    # navigating away and back restores it from state without re-reading the file.
-    up_col, clear_col = st.columns([5, 1])
+    # ── DB availability check (done once per session) ─────────────────────────
+    try:
+        from aero.data.nsl_store import (  # type: ignore
+            db_available, ensure_nsl_tables, upsert_nsl_data,
+            load_nsl_from_db, get_nsl_upload_log, nsl_row_count,
+        )
+        _use_db = db_available()
+        if _use_db and not st.session_state.get("nsl_tables_ensured"):
+            ensure_nsl_tables()
+            st.session_state["nsl_tables_ensured"] = True
+    except Exception:
+        _use_db = False
+
+    # ── upload + status row ───────────────────────────────────────────────────
+    up_col, status_col = st.columns([4, 2])
     uploaded = up_col.file_uploader(
         "Upload NSL Data File (.txt / .csv)",
         type=["txt", "csv"],
-        help="Comma-separated NSL export. Max 2 GB.",
+        help="Comma-separated NSL export. Saved to database on upload.",
         key="nsl_upload",
     )
 
-    # New file just dropped → load and store in session state
+    # ── DB status badge ───────────────────────────────────────────────────────
+    if _use_db:
+        try:
+            db_rows = nsl_row_count()
+            log     = get_nsl_upload_log(1)
+            last_up = log[0]["uploaded_at"].strftime("%d %b %Y %H:%M") if log else "—"
+            last_fn = log[0]["filename"] if log else "—"
+            status_col.markdown(f"""
+            <div style="background:#ECFDF5;border:1px solid #BBF7D0;border-radius:8px;
+                padding:10px 14px;font-size:12px;margin-top:24px;">
+                <div style="font-weight:700;color:#065f46;margin-bottom:4px;">
+                    🗄️ Database Connected</div>
+                <div style="color:#047857;"><b>{db_rows:,}</b> shipments stored</div>
+                <div style="color:#6B7280;margin-top:2px;">Last upload: {last_up}</div>
+                <div style="color:#6B7280;font-size:11px;">{last_fn}</div>
+            </div>""", unsafe_allow_html=True)
+        except Exception:
+            status_col.markdown("""
+            <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;
+                padding:10px 14px;font-size:12px;margin-top:24px;">
+                <div style="font-weight:700;color:#92400E;">⚠️ DB Unreachable</div>
+                <div style="color:#78350F;">Using session cache only</div>
+            </div>""", unsafe_allow_html=True)
+            _use_db = False
+    else:
+        status_col.markdown("""
+        <div style="background:#F3F4F6;border:1px solid #E5E7EB;border-radius:8px;
+            padding:10px 14px;font-size:12px;margin-top:24px;">
+            <div style="font-weight:700;color:#374151;">📁 Session Mode</div>
+            <div style="color:#6B7280;">No DB — data lives in memory only</div>
+        </div>""", unsafe_allow_html=True)
+
+    # ── process new upload ────────────────────────────────────────────────────
     if uploaded is not None:
         file_id = f"{uploaded.name}_{uploaded.size}"
         if st.session_state.get("nsl_file_id") != file_id:
+            file_bytes = uploaded.read()
+
+            # 1. Parse
             with st.spinner("Parsing file…"):
-                df_new = _load_nsl(uploaded.read())
+                df_new = _load_nsl(file_bytes)
+            st.success(f"Parsed **{len(df_new):,}** rows from {uploaded.name}")
+
+            # 2. Upsert to DB (if available)
+            if _use_db:
+                try:
+                    with st.spinner(f"Saving {len(df_new):,} rows to database…"):
+                        meta = upsert_nsl_data(df_new, uploaded.name)
+                    st.success(
+                        f"✅ Saved to database — **{meta['rows_upserted']:,}** rows upserted. "
+                        f"Total in DB: **{meta['total_rows_db']:,}**"
+                    )
+                    # 3. Reload from DB so session state reflects full cumulative dataset
+                    with st.spinner("Loading full dataset from database…"):
+                        df_new = load_nsl_from_db()
+                    st.info(f"📊 Showing **{len(df_new):,}** total records from database")
+                except Exception as e:
+                    st.warning(f"DB save failed ({e}) — using parsed file data for this session.")
+
+            # 4. Store in session state
             st.session_state["nsl_df"]       = df_new
             st.session_state["nsl_filename"] = uploaded.name
             st.session_state["nsl_file_id"]  = file_id
-
-    # Clear button — only show when data is loaded
-    if st.session_state.get("nsl_df") is not None:
-        if clear_col.button("🗑 Clear data", key="nsl_clear", use_container_width=True):
-            st.session_state["nsl_df"]       = None
-            st.session_state["nsl_filename"] = None
-            st.session_state["nsl_file_id"]  = None
             st.rerun()
 
-    # No data in state yet → show placeholder
+    # ── try loading from DB if session state is empty ─────────────────────────
+    if st.session_state.get("nsl_df") is None and _use_db:
+        try:
+            db_rows = nsl_row_count()
+            if db_rows > 0:
+                with st.spinner(f"Loading {db_rows:,} records from database…"):
+                    df_db = load_nsl_from_db()
+                st.session_state["nsl_df"]       = df_db
+                st.session_state["nsl_filename"] = "Database"
+                st.session_state["nsl_file_id"]  = "db"
+                st.rerun()
+        except Exception:
+            pass
+
+    # ── nothing loaded yet ────────────────────────────────────────────────────
     if st.session_state.get("nsl_df") is None:
         st.markdown("""
         <div style="text-align:center;padding:60px 20px;color:#999;">
             <div style="font-size:48px;margin-bottom:16px;">📂</div>
             <div style="font-size:16px;font-weight:600;">Upload an NSL data file above to begin</div>
             <div style="font-size:13px;margin-top:8px;">
-                Supports files up to 2 GB. Charts populate automatically after upload.
-                Data persists as you navigate between tabs.
+                Data is saved permanently to the database on upload.<br>
+                Subsequent uploads add new records and update existing ones by tracking number.
             </div>
         </div>""", unsafe_allow_html=True)
         return
 
     raw_df     = st.session_state["nsl_df"]
     total_rows = len(raw_df)
-    st.caption(f"✅ Loaded **{total_rows:,}** records from **{st.session_state['nsl_filename']}**")
+    src_label  = st.session_state.get("nsl_filename", "database")
+    st.caption(f"✅ **{total_rows:,}** records — source: **{src_label}**")
 
     # ── filter bar ────────────────────────────────────────────────────────────
     with st.expander("🔽  Filters", expanded=True):
@@ -493,6 +565,7 @@ def render_nsl_tab() -> None:
                     ss = (df2.groupby("stop_label").apply(lambda g: pd.Series({
                         "Clean (%)":  (g["scan_type_num"]==8.0).sum()/len(g)*100,
                         "PUX (%)":    (g["scan_type_num"]==29.0).sum()/len(g)*100,
+                        "No Scan (%)": g["scan_type_num"].isna().sum()/len(g)*100,
                         "No Scan (%)": g["scan_type_num"].isna().sum()/len(g)*100,
                     })).reset_index())
                     fig = go.Figure()
