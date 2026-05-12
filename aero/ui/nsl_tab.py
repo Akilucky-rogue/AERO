@@ -75,11 +75,11 @@ _PUX_NAMES = {
 
 
 def _base_layout(**kwargs):
+    kwargs.setdefault("margin", dict(l=16, r=16, t=36, b=16))
     return dict(
         font=dict(family="Inter, sans-serif", size=12, color="#333"),
         paper_bgcolor="rgba(0,0,0,0)",
         plot_bgcolor="rgba(0,0,0,0)",
-        margin=dict(l=16, r=16, t=36, b=16),
         legend=dict(orientation="h", yanchor="bottom", y=1.02,
                     xanchor="right", x=1, font_size=11),
         **kwargs,
@@ -530,4 +530,4 @@ def render_nsl_tab() -> None:
                     xaxis=dict(title="", gridcolor="#F0F0F0"),
                     **_base_layout(),
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_conta
