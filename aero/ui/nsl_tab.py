@@ -145,27 +145,52 @@ def render_nsl_tab() -> None:
         accent=_PURPLE,
     )
 
-    uploaded = st.file_uploader(
+    # ── file uploader + session-state persistence ─────────────────────────────
+    # The uploader widget resets when you navigate between tabs, so we keep the
+    # loaded DataFrame in st.session_state["nsl_df"].  A new upload overwrites it;
+    # navigating away and back restores it from state without re-reading the file.
+    up_col, clear_col = st.columns([5, 1])
+    uploaded = up_col.file_uploader(
         "Upload NSL Data File (.txt / .csv)",
         type=["txt", "csv"],
         help="Comma-separated NSL export. Max 2 GB.",
         key="nsl_upload",
     )
 
-    if uploaded is None:
+    # New file just dropped → load and store in session state
+    if uploaded is not None:
+        file_id = f"{uploaded.name}_{uploaded.size}"
+        if st.session_state.get("nsl_file_id") != file_id:
+            with st.spinner("Parsing file…"):
+                df_new = _load_nsl(uploaded.read())
+            st.session_state["nsl_df"]       = df_new
+            st.session_state["nsl_filename"] = uploaded.name
+            st.session_state["nsl_file_id"]  = file_id
+
+    # Clear button — only show when data is loaded
+    if st.session_state.get("nsl_df") is not None:
+        if clear_col.button("🗑 Clear data", key="nsl_clear", use_container_width=True):
+            st.session_state["nsl_df"]       = None
+            st.session_state["nsl_filename"] = None
+            st.session_state["nsl_file_id"]  = None
+            st.rerun()
+
+    # No data in state yet → show placeholder
+    if st.session_state.get("nsl_df") is None:
         st.markdown("""
         <div style="text-align:center;padding:60px 20px;color:#999;">
             <div style="font-size:48px;margin-bottom:16px;">📂</div>
             <div style="font-size:16px;font-weight:600;">Upload an NSL data file above to begin</div>
             <div style="font-size:13px;margin-top:8px;">
                 Supports files up to 2 GB. Charts populate automatically after upload.
+                Data persists as you navigate between tabs.
             </div>
         </div>""", unsafe_allow_html=True)
         return
 
-    raw_df = _load_nsl(uploaded.read())
+    raw_df     = st.session_state["nsl_df"]
     total_rows = len(raw_df)
-    st.caption(f"✅ Loaded **{total_rows:,}** records from **{uploaded.name}**")
+    st.caption(f"✅ Loaded **{total_rows:,}** records from **{st.session_state['nsl_filename']}**")
 
     # ── filter bar ────────────────────────────────────────────────────────────
     with st.expander("🔽  Filters", expanded=True):
@@ -531,4 +556,3 @@ def render_nsl_tab() -> None:
                     **_base_layout(),
                 )
                 st.plotly_chart(fig, use_container_width=True)
-

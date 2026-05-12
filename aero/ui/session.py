@@ -98,4 +98,11 @@ def init_session_state() -> None:
         st.session_state["svc_awb_meta"] = None
     if "svc_pred_df" not in st.session_state:
         st.session_state["svc_pred_df"] = None
+    # NSL Analytics persistent state (Leadership dashboard)
+    if "nsl_df" not in st.session_state:
+        st.session_state["nsl_df"] = None
+    if "nsl_filename" not in st.session_state:
+        st.session_state["nsl_filename"] = None
+    if "nsl_file_id" not in st.session_state:
+        st.session_state["nsl_file_id"] = None
 
