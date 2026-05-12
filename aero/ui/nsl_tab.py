@@ -543,15 +543,14 @@ def render_nsl_tab() -> None:
                 fig.add_trace(go.Scatter(
                     x=daily[_date_col], y=daily["nsl_pct"],
                     name="NSL%",
-                    mode="lines+markers",
+                    mode="lines+markers+text",
                     line=dict(color=_ORANGE, width=2.5),
                     marker=dict(size=4),
-                    hovertemplate="%{x|%d %b %Y}<br>NSL: %{y:.1f}%<extra>NSL%</extra>",
-                    yaxis="y2",
                     text=daily["nsl_pct"].apply(lambda v: f"{v:.0f}%"),
                     textposition="top center",
-                    mode="lines+markers+text",
                     textfont=dict(size=9, color=_ORANGE),
+                    hovertemplate="%{x|%d %b %Y}<br>NSL: %{y:.1f}%<extra>NSL%</extra>",
+                    yaxis="y2",
                 ))
                 fig.update_layout(
                     title=_title,
@@ -684,4 +683,4 @@ def render_nsl_tab() -> None:
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-            # ─
+            # ── Drill-down: select a bucket to see AWB
