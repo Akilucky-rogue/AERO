@@ -5,6 +5,8 @@ Call render_nsl_tab() inside a `with tab_svc:` block.
 """
 import io
 import os
+import pickle
+import hashlib
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
@@ -136,6 +138,37 @@ def _pof_label(code) -> str:
     return s
 
 
+def _cache_path() -> str:
+    """Return path to the local pickle cache file (lives next to this module)."""
+    return os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "data", "_nsl_cache.pkl"
+    )
+
+
+def _save_cache(df: pd.DataFrame, filename: str) -> None:
+    """Persist DataFrame to disk so data survives app restarts."""
+    try:
+        payload = {"df": df, "filename": filename}
+        with open(_cache_path(), "wb") as f:
+            pickle.dump(payload, f, protocol=4)
+    except Exception:
+        pass  # non-fatal
+
+
+def _load_cache() -> tuple:
+    """Load (df, filename) from disk cache. Returns (None, None) if absent."""
+    try:
+        path = _cache_path()
+        if not os.path.exists(path):
+            return None, None
+        with open(path, "rb") as f:
+            payload = pickle.load(f)
+        return payload.get("df"), payload.get("filename", "cache")
+    except Exception:
+        return None, None
+
+
 def _load_india_loc_ids() -> dict:
     """Load India LOC ID → City mapping from CSV."""
     csv_path = os.path.join(
@@ -239,11 +272,17 @@ def render_nsl_tab() -> None:
     uploaded = up_col.file_uploader(
         "Upload NSL Data File (.txt / .csv)",
         type=["txt", "csv"],
-        help="Comma-separated NSL export. Saved to database on upload.",
+        help="Comma-separated NSL export. Saved permanently on submit.",
         key="nsl_upload",
     )
+    submit_upload = up_col.button(
+        "✅  Submit & Process File",
+        key="nsl_submit",
+        disabled=(uploaded is None),
+        use_container_width=False,
+    )
 
-    # ── DB status badge ───────────────────────────────────────────────────────
+    # ── DB / cache status badge ───────────────────────────────────────────────
     if _use_db:
         try:
             db_rows = nsl_row_count()
@@ -252,7 +291,7 @@ def render_nsl_tab() -> None:
             last_fn = log[0]["filename"] if log else "—"
             status_col.markdown(f"""
             <div style="background:#ECFDF5;border:1px solid #BBF7D0;border-radius:8px;
-                padding:10px 14px;font-size:12px;margin-top:24px;">
+                padding:10px 14px;font-size:12px;margin-top:8px;">
                 <div style="font-weight:700;color:#065f46;margin-bottom:4px;">
                     🗄️ Database Connected</div>
                 <div style="color:#047857;"><b>{db_rows:,}</b> shipments stored</div>
@@ -262,54 +301,88 @@ def render_nsl_tab() -> None:
         except Exception:
             status_col.markdown("""
             <div style="background:#FEF3C7;border:1px solid #FDE68A;border-radius:8px;
-                padding:10px 14px;font-size:12px;margin-top:24px;">
+                padding:10px 14px;font-size:12px;margin-top:8px;">
                 <div style="font-weight:700;color:#92400E;">⚠️ DB Unreachable</div>
-                <div style="color:#78350F;">Data loaded from session cache</div>
+                <div style="color:#78350F;">Using local file cache</div>
             </div>""", unsafe_allow_html=True)
             _use_db = False
-    # No badge at all when DB is not configured — avoids confusing "Session Mode" message
+    else:
+        # Show local cache status
+        cache_df, cache_fn = _load_cache() if st.session_state.get("nsl_df") is None else (None, None)
+        cache_exists = os.path.exists(_cache_path())
+        if cache_exists:
+            try:
+                cache_size = os.path.getsize(_cache_path()) // (1024 * 1024)
+                status_col.markdown(f"""
+                <div style="background:#EFF6FF;border:1px solid #BFDBFE;border-radius:8px;
+                    padding:10px 14px;font-size:12px;margin-top:8px;">
+                    <div style="font-weight:700;color:#1e40af;margin-bottom:4px;">
+                        💾 Local Cache Active</div>
+                    <div style="color:#1d4ed8;">Data saved on disk ({cache_size} MB)</div>
+                    <div style="color:#6B7280;font-size:11px;margin-top:2px;">
+                        Persists across restarts</div>
+                </div>""", unsafe_allow_html=True)
+            except Exception:
+                pass
 
-    # ── process new upload ────────────────────────────────────────────────────
-    if uploaded is not None:
+    # ── process new upload (only on submit) ──────────────────────────────────
+    if uploaded is not None and submit_upload:
         file_id = f"{uploaded.name}_{uploaded.size}"
-        if st.session_state.get("nsl_file_id") != file_id:
-            file_bytes = uploaded.read()
-            with st.spinner("Parsing file…"):
-                df_new = _load_nsl(file_bytes)
-            st.success(f"Parsed **{len(df_new):,}** rows from {uploaded.name}")
+        file_bytes = uploaded.read()
 
-            if _use_db:
-                try:
-                    with st.spinner(f"Saving {len(df_new):,} rows to database…"):
-                        meta = upsert_nsl_data(df_new, uploaded.name)
-                    st.success(
-                        f"✅ Saved — **{meta['rows_upserted']:,}** rows upserted. "
-                        f"Total in DB: **{meta['total_rows_db']:,}**"
-                    )
-                    with st.spinner("Loading full dataset from database…"):
-                        df_new = load_nsl_from_db()
-                    st.info(f"📊 Showing **{len(df_new):,}** total records from database")
-                except Exception as e:
-                    st.warning(f"DB save failed ({e}) — using parsed file data for this session.")
+        with st.spinner("Parsing file…"):
+            df_new = _load_nsl(file_bytes)
+        st.success(f"Parsed **{len(df_new):,}** rows from {uploaded.name}")
 
-            st.session_state["nsl_df"]       = df_new
-            st.session_state["nsl_filename"] = uploaded.name
-            st.session_state["nsl_file_id"]  = file_id
-            st.rerun()
+        if _use_db:
+            try:
+                with st.spinner(f"Saving {len(df_new):,} rows to database…"):
+                    meta = upsert_nsl_data(df_new, uploaded.name)
+                st.success(
+                    f"✅ Saved to DB — **{meta['rows_upserted']:,}** rows upserted. "
+                    f"Total in DB: **{meta['total_rows_db']:,}**"
+                )
+                with st.spinner("Loading full dataset from database…"):
+                    df_new = load_nsl_from_db()
+                st.info(f"📊 Showing **{len(df_new):,}** total records from database")
+            except Exception as e:
+                st.warning(f"DB save failed ({e}) — saving to local cache instead.")
 
-    # ── auto-load from DB if session empty ────────────────────────────────────
-    if st.session_state.get("nsl_df") is None and _use_db:
-        try:
-            db_rows = nsl_row_count()
-            if db_rows > 0:
-                with st.spinner(f"Loading {db_rows:,} records from database…"):
-                    df_db = load_nsl_from_db()
-                st.session_state["nsl_df"]       = df_db
-                st.session_state["nsl_filename"] = "Database"
-                st.session_state["nsl_file_id"]  = "db"
+        # Always save to local disk cache as well (belt-and-suspenders)
+        with st.spinner("Saving to local cache…"):
+            _save_cache(df_new, uploaded.name)
+
+        st.session_state["nsl_df"]       = df_new
+        st.session_state["nsl_filename"] = uploaded.name
+        st.session_state["nsl_file_id"]  = file_id
+        st.rerun()
+
+    # ── auto-load on session start: DB first, then local cache ───────────────
+    if st.session_state.get("nsl_df") is None:
+        loaded = False
+        if _use_db:
+            try:
+                db_rows = nsl_row_count()
+                if db_rows > 0:
+                    with st.spinner(f"Loading {db_rows:,} records from database…"):
+                        df_db = load_nsl_from_db()
+                    st.session_state["nsl_df"]       = df_db
+                    st.session_state["nsl_filename"] = "Database"
+                    st.session_state["nsl_file_id"]  = "db"
+                    loaded = True
+                    st.rerun()
+            except Exception:
+                pass
+
+        if not loaded:
+            cache_df, cache_fn = _load_cache()
+            if cache_df is not None and len(cache_df) > 0:
+                with st.spinner("Restoring data from local cache…"):
+                    pass  # already loaded
+                st.session_state["nsl_df"]       = cache_df
+                st.session_state["nsl_filename"] = f"{cache_fn} (cached)"
+                st.session_state["nsl_file_id"]  = "cache"
                 st.rerun()
-        except Exception:
-            pass
 
     if st.session_state.get("nsl_df") is None:
         st.markdown("""
@@ -638,15 +711,15 @@ def render_nsl_tab() -> None:
                     fig = go.Figure()
                     for b in ordered_buckets:
                         s = fm[fm["bucket"] == b]
-                        total_for_label = s["vol"].sum()
                         fig.add_trace(go.Bar(
                             x=s["month"],
                             y=s["vol"],
-                            name=_BUCKET_LABELS.get(b, b),
+                            name=b,  # short code in legend
                             marker_color=_BUCKET_COLORS.get(b, "#CCC"),
                             text=[f"{int(v):,}" if v > 500 else "" for v in s["vol"]],
                             textposition="inside",
                             textfont=dict(size=9, color="white"),
+                            # full label in hover only
                             hovertemplate="%{x}<br><b>" + _BUCKET_LABELS.get(b, b) + "</b><br>"
                                           "%{y:,} failed pkgs<extra></extra>",
                         ))
@@ -665,16 +738,17 @@ def render_nsl_tab() -> None:
                 bs = (fail_df.groupby("Bucket")["TOT_VOL"].sum()
                       .reset_index().sort_values("TOT_VOL", ascending=False))
                 bs.columns = ["bucket", "vol"]
-                bs["label"] = bs["bucket"].apply(lambda b: _BUCKET_LABELS.get(b, b))
 
                 fig = go.Figure(go.Pie(
-                    labels=bs["label"],
+                    labels=bs["bucket"],   # short codes on chart
                     values=bs["vol"],
                     hole=0.55,
                     marker_colors=[_BUCKET_COLORS.get(b, "#CCC") for b in bs["bucket"]],
                     textinfo="label+percent",
-                    textfont_size=10,
-                    hovertemplate="%{label}<br>%{value:,} pkgs<br>%{percent}<extra></extra>",
+                    textfont_size=11,
+                    # full label in hover tooltip
+                    customdata=[_BUCKET_LABELS.get(b, b) for b in bs["bucket"]],
+                    hovertemplate="<b>%{customdata}</b><br>%{value:,} pkgs<br>%{percent}<extra></extra>",
                 ))
                 fig.update_layout(
                     title="Failure Ownership Share",
@@ -683,4 +757,235 @@ def render_nsl_tab() -> None:
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-            # ── Drill-down: select a bucket to see AWB
+            # ── Drill-down: select a bucket to see AWBs ───────────────────
+            st.markdown("---")
+            st.markdown(
+                '<div style="font-size:13px;font-weight:700;color:#4D148C;'
+                'margin-bottom:8px;">🔍 Drill Down by Failure Bucket</div>',
+                unsafe_allow_html=True,
+            )
+            bucket_opts = ["— Select a bucket —"] + bs["bucket"].tolist()
+            bucket_labels_map = {b: _BUCKET_LABELS.get(b, b) for b in bs["bucket"].tolist()}
+            sel_bucket = st.selectbox(
+                "Select bucket to inspect AWBs",
+                bucket_opts,
+                format_func=lambda x: bucket_labels_map.get(x, x),
+                key="nsl_bucket_drill",
+                label_visibility="collapsed",
+            )
+            if sel_bucket != "— Select a bucket —":
+                drill = fail_df[fail_df["Bucket"] == sel_bucket].copy()
+                drill_cols = ["shp_trk_nbr", "shp_dt", "shpr_co_nm", "orig_market_cd",
+                              "dest_market_cd", "Service", "Service_Detail",
+                              "pof_cause", "pof_cause_label", "NSL_F_VOL"]
+                drill_cols = [c for c in drill_cols if c in drill.columns]
+                st.markdown(
+                    f'<div style="font-size:12px;color:#555;margin-bottom:6px;">'
+                    f'<b>{len(drill):,}</b> failed AWBs in '
+                    f'<b>{_BUCKET_LABELS.get(sel_bucket, sel_bucket)}</b></div>',
+                    unsafe_allow_html=True,
+                )
+                st.dataframe(
+                    drill[drill_cols].reset_index(drop=True),
+                    use_container_width=True,
+                    height=320,
+                )
+                buf = io.StringIO()
+                drill[drill_cols].to_csv(buf, index=False)
+                st.download_button(
+                    f"⬇️  Download {sel_bucket} AWBs (CSV)",
+                    buf.getvalue().encode(),
+                    f"nsl_failed_{sel_bucket.lower().replace(' ', '_')}.csv",
+                    "text/csv",
+                    key="nsl_bucket_dl",
+                )
+
+            # ── Top POF Causes (code + full label in table) ───────────────
+            if "pof_cause" in df.columns and "NSL_OT_VOL" in df.columns:
+                st.markdown("---")
+                st.markdown(
+                    '<div style="font-size:13px;font-weight:700;color:#333;'
+                    'margin-bottom:8px;">Top POF Causes</div>',
+                    unsafe_allow_html=True,
+                )
+                pof = (df[df["NSL_OT_VOL"] == 0]
+                       .groupby("pof_cause")["TOT_VOL"].sum()
+                       .reset_index().nlargest(15, "TOT_VOL"))
+                pof.columns = ["code", "Failed Shipments"]
+                pof_total = pof["Failed Shipments"].sum()
+                # Full label only in the table
+                pof["POF Cause"] = pof["code"].apply(_pof_label)
+                pof["% of Failures"] = (pof["Failed Shipments"] / pof_total * 100
+                                        ).round(1).astype(str) + "%"
+                pof["Failed Shipments"] = pof["Failed Shipments"].apply(lambda x: f"{int(x):,}")
+                st.dataframe(
+                    pof[["POF Cause", "Failed Shipments", "% of Failures"]],
+                    use_container_width=True, hide_index=True,
+                )
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # CUSTOMERS
+    # ══════════════════════════════════════════════════════════════════════════
+    with t_cust:
+        if "shpr_co_nm" not in df.columns:
+            st.info("Customer column not available.")
+        else:
+            nc1, _ = st.columns([1, 4])
+            top_n = nc1.slider("Show top N customers", 5, 50, 20, step=5, key="nsl_cust_n")
+            cg = df.groupby("shpr_co_nm").agg(
+                vol=("TOT_VOL", "sum"), nsl_ot=("NSL_OT_VOL", "sum"),
+            ).reset_index()
+            cg["NSL OT %"] = (cg["nsl_ot"] / cg["vol"] * 100).round(1)
+            ct = cg.nlargest(top_n, "vol").sort_values("vol", ascending=False)
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                x=ct["shpr_co_nm"], y=ct["NSL OT %"], name="NSL OT %",
+                marker_color=_PURPLE,
+                hovertemplate="%{x}<br>NSL OT: %{y:.1f}%<extra></extra>",
+            ))
+            fig.add_hline(y=75, line_dash="dash", line_color=_ORANGE, line_width=1.5,
+                          annotation_text="75% NSL target")
+            fig.update_layout(
+                title=f"Top {top_n} Customers — NSL On-Time %",
+                xaxis=dict(title="", tickangle=-35),
+                yaxis=dict(title="NSL OT %", range=[0, 110],
+                           ticksuffix="%", gridcolor="#F0F0F0"),
+                **_base_layout(),
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            disp = ct[["shpr_co_nm", "vol", "NSL OT %"]].copy()
+            disp.columns = ["Customer", "Volume", "NSL OT %"]
+            disp["Volume"]   = disp["Volume"].apply(lambda x: f"{int(x):,}")
+            disp["NSL OT %"] = disp["NSL OT %"].apply(lambda x: f"{x:.1f}%")
+            st.dataframe(disp, use_container_width=True, hide_index=True)
+
+            buf = io.StringIO()
+            cg.to_csv(buf, index=False)
+            st.download_button("⬇️  Download Full Customer Table (CSV)",
+                               buf.getvalue().encode(), "nsl_customers.csv", "text/csv")
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # SCAN COMPLIANCE
+    # ══════════════════════════════════════════════════════════════════════════
+    with t_scan:
+        if "scan_label" not in df.columns:
+            st.info("Pickup scan columns not available.")
+        else:
+            sc1, sc2 = st.columns(2)
+            with sc1:
+                sd = df["scan_label"].value_counts().reset_index()
+                sd.columns = ["scan_type", "count"]
+                cmap = {
+                    "Standard PUP (Clean)": _GREEN,
+                    "PUX Exception":        _ORANGE,
+                    "No Scan":              _RED,
+                }
+                fig = go.Figure(go.Bar(
+                    x=sd["scan_type"], y=sd["count"],
+                    marker_color=[cmap.get(s, _GREY) for s in sd["scan_type"]],
+                    text=[f"{v:,} ({v / len(df) * 100:.1f}%)" for v in sd["count"]],
+                    textposition="outside",
+                    hovertemplate="%{x}<br>%{y:,}<extra></extra>",
+                ))
+                fig.update_layout(
+                    title="Pickup Scan Type Distribution",
+                    yaxis=dict(title="Shipments", gridcolor="#F0F0F0"),
+                    xaxis=dict(title=""),
+                    **_base_layout(),
+                )
+                st.plotly_chart(fig, use_container_width=True)
+
+            with sc2:
+                if "pckup_stop_typ_cd" in df.columns:
+                    stop_map = {"R": "Regular", "C": "Call-tag",
+                                "O": "On-call",  "M": "Mass", "T": "Other"}
+                    df2 = df.copy()
+                    df2["stop_label"] = df2["pckup_stop_typ_cd"].map(stop_map).fillna("Unknown")
+                    ss = (df2.groupby("stop_label").apply(lambda g: pd.Series({
+                        "Clean (%)":   (g["scan_type_num"] == 8.0).sum() / len(g) * 100,
+                        "PUX (%)":     (g["scan_type_num"] == 29.0).sum() / len(g) * 100,
+                        "No Scan (%)": g["scan_type_num"].isna().sum() / len(g) * 100,
+                    })).reset_index())
+                    fig = go.Figure()
+                    for lbl, col_name, color in [
+                        ("Clean (%)",   "Clean Scan",    _GREEN),
+                        ("PUX (%)",     "PUX Exception", _ORANGE),
+                        ("No Scan (%)", "No Scan",       _RED),
+                    ]:
+                        fig.add_trace(go.Bar(
+                            x=ss["stop_label"], y=ss[lbl].round(1),
+                            name=col_name, marker_color=color,
+                            hovertemplate="%{x}<br>%{y:.1f}%<extra>" + col_name + "</extra>",
+                        ))
+                    fig.update_layout(
+                        barmode="stack",
+                        title="Scan Type % by Stop Type",
+                        yaxis=dict(title="%", ticksuffix="%",
+                                   range=[0, 105], gridcolor="#F0F0F0"),
+                        xaxis=dict(title="Stop Type"),
+                        **_base_layout(),
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+            # PUX breakdown
+            if "pkg_pckup_excp_typ_cd" in df.columns:
+                pux = df[df["scan_type_num"] == 29.0].copy()
+                if len(pux):
+                    st.markdown(
+                        '<div style="font-size:13px;font-weight:700;color:#333;'
+                        'margin-top:8px;margin-bottom:8px;">PUX Exception Code Breakdown</div>',
+                        unsafe_allow_html=True,
+                    )
+                    pc = pux["pkg_pckup_excp_typ_cd"].value_counts().reset_index()
+                    pc.columns = ["code", "count"]
+                    pc["code_num"] = pd.to_numeric(pc["code"], errors="coerce")
+                    pc["label"] = pc["code_num"].apply(
+                        lambda x: _PUX_NAMES.get(int(x), f"PUX{int(x):02d} — Unknown")
+                        if pd.notna(x) else "Unknown"
+                    )
+                    pc["pct"] = (pc["count"] / len(df) * 100).round(2)
+                    fig = go.Figure(go.Bar(
+                        x=pc["label"], y=pc["count"],
+                        marker_color=_ORANGE,
+                        text=[f"{v:,}" for v in pc["count"]],
+                        textposition="outside",
+                        customdata=pc["pct"],
+                        hovertemplate="%{x}<br>%{y:,} (%{customdata:.2f}%)<extra></extra>",
+                    ))
+                    fig.update_layout(
+                        title="PUX Exception Volume by Code",
+                        xaxis=dict(title="", tickangle=-30),
+                        yaxis=dict(title="Shipments", gridcolor="#F0F0F0"),
+                        **_base_layout(margin=dict(l=16, r=16, t=40, b=120)),
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+            # Weekly compliance trend
+            if "weekending_dt" in df.columns and not df["weekending_dt"].isna().all():
+                ws_df = (df.groupby("weekending_dt").apply(lambda g: pd.Series({
+                    "clean_pct":  (g["scan_type_num"] == 8.0).sum() / len(g) * 100,
+                    "pux_pct":    (g["scan_type_num"] == 29.0).sum() / len(g) * 100,
+                    "noscan_pct": g["scan_type_num"].isna().sum() / len(g) * 100,
+                })).reset_index().sort_values("weekending_dt"))
+                fig = go.Figure()
+                for col_n, color, lbl in [
+                    ("clean_pct",  _GREEN,  "Clean Scan"),
+                    ("pux_pct",    _ORANGE, "PUX Exception"),
+                    ("noscan_pct", _RED,    "No Scan"),
+                ]:
+                    fig.add_trace(go.Scatter(
+                        x=ws_df["weekending_dt"], y=ws_df[col_n].round(1),
+                        name=lbl, mode="lines+markers",
+                        line=dict(color=color, width=2.5),
+                        marker=dict(size=5),
+                        hovertemplate="%{x|%d %b %Y}<br>%{y:.1f}%<extra>" + lbl + "</extra>",
+                    ))
+                fig.update_layout(
+                    title="Weekly Scan Compliance Trend",
+                    yaxis=dict(title="%", ticksuffix="%",
+                               range=[0, 105], gridcolor="#F0F0F0"),
+                    xaxis=dict(title="", gridcolor="#F0F0F0"),
+                    **_base_layout(),
+                )
+                st.plotly_chart(fig, use_container_width=True)
