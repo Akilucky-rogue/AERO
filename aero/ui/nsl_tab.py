@@ -6,9 +6,10 @@ Call render_nsl_tab() inside a `with tab_svc:` block.
 import io
 import os
 import pickle
-import hashlib
+import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+import plotly.express as px
 import streamlit as st
 
 from aero.ui.components import (
@@ -52,27 +53,46 @@ _BUCKET_LABELS = {
     "Other":              "Other",
 }
 _POF_CAUSE_LABELS = {
-    # Common POF cause codes → human-readable labels
-    "A": "Adverse Weather",
-    "B": "Bulk Out / Capacity",
-    "C": "Customs / Clearance Hold",
-    "D": "Damaged Package",
-    "E": "Exceeds Service Limits",
+    # Numeric sub-cause codes (derived from cat_cause_cd analysis)
+    "3":  "Unspecified / Catch-all",
+    "8":  "Consignee Not Available / No Delivery Attempt",
+    "21": "Late Tender — Package Not Ready at Pickup Time",
+    "22": "Missort / Incorrect Routing at Origin",
+    "32": "Transit Delay — En-Route Hold",
+    "33": "Missed Linehaul Connection",
+    "50": "Volume Surge / Capacity Exceeded",
+    "52": "Clearance Processing Error",
+    "55": "Regulatory / Documentation Issue",
+    "73": "Customs — Incomplete or Incorrect Documentation",
+    "80": "Regulatory / Compliance Hold at Clearance",
+    "84": "Hub Equipment or Facility Failure",
+    # Alpha sub-cause codes
+    "AT": "Air Transit Miss — Aircraft Not Available",
+    "CD": "Connection Delay — Missed Onward Flight",
+    "EH": "Exception Hold — Package Flagged in Transit",
+    "HH": "Held at Hub — Awaiting Onward Dispatch",
+    "HI": "Hub Infrastructure / Sort System Issue",
+    "IC": "In-Clearance — Regulatory Processing (Customs)",
+    "LD": "Late Delivery — Final Mile Delay",
+    "OE": "Origin Exception — Station-Level Failure",
+    "SN": "No Scan Recorded — Gateway Visibility Gap",
+    "TD": "Transit Delay — Gateway Hold",
+    "TH": "Transit Hold — Awaiting Clearance or Docs",
+    # Legacy single-letter fallbacks
+    "A": "Addressing / AWB Issue",
+    "B": "Bulk Handling Delay",
+    "C": "Clearance Hold",
+    "D": "Delivery Failure",
     "F": "Flight / Aircraft Delay",
-    "G": "Government / Regulatory Hold",
-    "H": "Holiday / Closed",
-    "I": "Incorrect Address",
-    "J": "Mechanical Breakdown",
-    "K": "Missed Pickup",
-    "L": "Linehaul Delay",
-    "M": "Missed Sort",
-    "N": "No Attempt Made",
-    "O": "On-Hold by Shipper",
-    "P": "Payment / Credit Issue",
-    "Q": "Queue / Sortation Delay",
-    "R": "Refused by Recipient",
-    "S": "Security Delay",
-    "T": "Traffic / Congestion",
+    "G": "Gateway Issue",
+    "H": "Hub Delay",
+    "I": "Interline / Connecting Carrier Delay",
+    "O": "Origin Station Failure",
+    "P": "Processing / Sort Delay",
+    "R": "Regulatory / Recipient Issue",
+    "S": "Shipper-Caused Delay",
+    "T": "Transit Delay",
+    "W": "Weather / Natural Disaster",
     "U": "Undeliverable",
     "V": "Volume Surge",
     "W": "Weather Delay",
@@ -132,9 +152,18 @@ def _pof_label(code) -> str:
     """Return a human-readable label for a POF cause code."""
     if pd.isna(code) or code is None:
         return "Unknown"
-    s = str(code).strip().upper()
-    if s in _POF_CAUSE_LABELS:
-        return f"{s} — {_POF_CAUSE_LABELS[s].split('—')[-1].strip()}"
+    s = str(code).strip()
+    key = s.upper()
+    # Try exact match first (handles both numeric "21" and alpha "EH")
+    if key in _POF_CAUSE_LABELS:
+        return f"{s} — {_POF_CAUSE_LABELS[key]}"
+    # Try without leading zeros for numeric codes
+    try:
+        num_key = str(int(float(s)))
+        if num_key in _POF_CAUSE_LABELS:
+            return f"{s} — {_POF_CAUSE_LABELS[num_key]}"
+    except (ValueError, TypeError):
+        pass
     return s
 
 
@@ -561,41 +590,15 @@ def render_nsl_tab() -> None:
     # TRENDS
     # ══════════════════════════════════════════════════════════════════════════
     with t_trend:
-        # ── Weekly NSL% by Service ─────────────────────────────────────────
-        if "weekending_dt" in df.columns and not df["weekending_dt"].isna().all():
-            weekly = (df.groupby(["weekending_dt", "Service"])
-                      .agg(nsl_ot=("NSL_OT_VOL", "sum"), tot=("TOT_VOL", "sum"))
-                      .reset_index())
-            weekly["nsl_pct"] = weekly["nsl_ot"] / weekly["tot"] * 100
-            fig = go.Figure()
-            for i, svc in enumerate(weekly["Service"].dropna().unique()):
-                s = weekly[weekly["Service"] == svc].sort_values("weekending_dt")
-                fig.add_trace(go.Scatter(
-                    x=s["weekending_dt"], y=s["nsl_pct"].round(1),
-                    name=svc, mode="lines+markers",
-                    line=dict(color=_SEQ[i % len(_SEQ)], width=2.5),
-                    marker=dict(size=5),
-                    hovertemplate="%{x|%d %b %Y}<br>NSL OT: %{y:.1f}%<extra>" + str(svc) + "</extra>",
-                ))
-            fig.add_hline(y=100, line_dash="dot", line_color="#CCCCCC", line_width=1)
-            fig.update_layout(
-                title="NSL On-Time % — Weekly by Service",
-                yaxis=dict(title="NSL OT %", range=[0, 105],
-                           gridcolor="#F0F0F0", ticksuffix="%"),
-                xaxis=dict(title="", gridcolor="#F0F0F0"),
-                **_base_layout(),
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-        # ── Daily India OB NSL trend (bar=volume, line=NSL%) ──────────────
         _date_col = "shp_dt" if "shp_dt" in df.columns else (
                     "weekending_dt" if "weekending_dt" in df.columns else None)
 
-        if _date_col:
-            for _dir, _title in [("OB", "India Outbound NSL Trend (Daily)"),
-                                  ("IB", "India Inbound NSL Trend (Daily)")]:
-                if "direction" not in df.columns:
-                    break
+        # ── Daily OB / IB bar+line (volume + NSL%) ────────────────────────
+        if _date_col and "direction" in df.columns:
+            for _dir, _color, _title in [
+                ("OB", _PURPLE, "India Outbound — Daily Volume & NSL%"),
+                ("IB", _COLORS["blue"], "India Inbound — Daily Volume & NSL%"),
+            ]:
                 df_d = df[df["direction"] == _dir]
                 if df_d.empty:
                     continue
@@ -603,45 +606,96 @@ def render_nsl_tab() -> None:
                          .agg(nsl_ot=("NSL_OT_VOL", "sum"), tot=("TOT_VOL", "sum"))
                          .reset_index().sort_values(_date_col))
                 daily["nsl_pct"] = (daily["nsl_ot"] / daily["tot"] * 100).round(1)
-
                 fig = go.Figure()
                 fig.add_trace(go.Bar(
-                    x=daily[_date_col], y=daily["tot"],
-                    name="Total pks",
-                    marker_color=_PURPLE,
-                    opacity=0.75,
+                    x=daily[_date_col], y=daily["tot"], name="Total Pkgs",
+                    marker_color=_color, opacity=0.7, yaxis="y",
                     hovertemplate="%{x|%d %b %Y}<br>%{y:,} pkgs<extra>Volume</extra>",
-                    yaxis="y",
                 ))
                 fig.add_trace(go.Scatter(
-                    x=daily[_date_col], y=daily["nsl_pct"],
-                    name="NSL%",
-                    mode="lines+markers+text",
-                    line=dict(color=_ORANGE, width=2.5),
-                    marker=dict(size=4),
+                    x=daily[_date_col], y=daily["nsl_pct"], name="NSL%",
+                    mode="lines+markers", line=dict(color=_ORANGE, width=2.5),
+                    marker=dict(size=4), yaxis="y2",
                     text=daily["nsl_pct"].apply(lambda v: f"{v:.0f}%"),
-                    textposition="top center",
-                    textfont=dict(size=9, color=_ORANGE),
+                    textposition="top center", textfont=dict(size=8, color=_ORANGE),
                     hovertemplate="%{x|%d %b %Y}<br>NSL: %{y:.1f}%<extra>NSL%</extra>",
-                    yaxis="y2",
                 ))
                 fig.update_layout(
                     title=_title,
-                    yaxis=dict(title="Total Packages", gridcolor="#F0F0F0", showgrid=True),
+                    yaxis=dict(title="Total Packages", gridcolor="#F0F0F0"),
                     yaxis2=dict(title="NSL %", overlaying="y", side="right",
-                                ticksuffix="%", range=[0, 110], showgrid=False),
+                                ticksuffix="%", range=[0, 115], showgrid=False),
                     xaxis=dict(title="", gridcolor="#F0F0F0"),
-                    barmode="overlay",
                     **_base_layout(margin=dict(l=16, r=60, t=40, b=16)),
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-        # NOTE: Monthly Volume by MBG Class removed per request
+        # ── Weekly NSL% by Service — multi-line ───────────────────────────
+        if "weekending_dt" in df.columns and not df["weekending_dt"].isna().all():
+            weekly = (df.groupby(["weekending_dt", "Service"])
+                      .agg(nsl_ot=("NSL_OT_VOL", "sum"), tot=("TOT_VOL", "sum"))
+                      .reset_index())
+            weekly["nsl_pct"] = (weekly["nsl_ot"] / weekly["tot"] * 100).round(1)
+            fig = go.Figure()
+            for i, svc in enumerate(sorted(weekly["Service"].dropna().unique())):
+                s = weekly[weekly["Service"] == svc].sort_values("weekending_dt")
+                fig.add_trace(go.Scatter(
+                    x=s["weekending_dt"], y=s["nsl_pct"], name=svc,
+                    mode="lines+markers",
+                    line=dict(color=_SEQ[i % len(_SEQ)], width=2.5),
+                    marker=dict(size=6),
+                    hovertemplate="%{x|%d %b %Y}<br>NSL: %{y:.1f}%<extra>" + str(svc) + "</extra>",
+                ))
+            fig.add_hline(y=75, line_dash="dash", line_color=_RED, line_width=1.5,
+                          annotation_text="75% target", annotation_position="bottom right")
+            fig.update_layout(
+                title="Weekly NSL On-Time % by Service Type",
+                yaxis=dict(title="NSL OT %", range=[0, 105],
+                           gridcolor="#F0F0F0", ticksuffix="%"),
+                xaxis=dict(title="", gridcolor="#F0F0F0"),
+                **_base_layout(),
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+        # ── Heatmap: Week × Destination Region NSL% ───────────────────────
+        if "weekending_dt" in df.columns and "dest_region" in df.columns:
+            hm = (df.groupby(["weekending_dt", "dest_region"])
+                  .agg(nsl_ot=("NSL_OT_VOL", "sum"), tot=("TOT_VOL", "sum"))
+                  .reset_index())
+            hm["nsl_pct"] = (hm["nsl_ot"] / hm["tot"] * 100).round(1)
+            hm["week_str"] = hm["weekending_dt"].dt.strftime("%d %b")
+            pivot = hm.pivot_table(index="dest_region", columns="week_str",
+                                   values="nsl_pct", aggfunc="mean")
+            # Sort weeks chronologically
+            week_order = (hm[["weekending_dt", "week_str"]]
+                          .drop_duplicates().sort_values("weekending_dt")["week_str"].tolist())
+            pivot = pivot.reindex(columns=[w for w in week_order if w in pivot.columns])
+            fig = go.Figure(go.Heatmap(
+                z=pivot.values,
+                x=pivot.columns.tolist(),
+                y=pivot.index.tolist(),
+                colorscale=[[0, "#DE002E"], [0.4, "#FFB800"], [0.7, "#AAFFAA"], [1, "#008A00"]],
+                zmin=0, zmax=100,
+                text=[[f"{v:.0f}%" if not np.isnan(v) else "" for v in row]
+                      for row in pivot.values],
+                texttemplate="%{text}",
+                textfont=dict(size=10),
+                hovertemplate="Region: %{y}<br>Week: %{x}<br>NSL: %{z:.1f}%<extra></extra>",
+                colorbar=dict(title="NSL%", ticksuffix="%"),
+            ))
+            fig.update_layout(
+                title="NSL% Heatmap — Destination Region × Week",
+                xaxis=dict(title="Week Ending", tickangle=-30),
+                yaxis=dict(title=""),
+                **_base_layout(margin=dict(l=120, r=16, t=40, b=80)),
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # GEOGRAPHY
     # ══════════════════════════════════════════════════════════════════════════
     with t_geo:
+        # ── Row 1: Region bar + Top markets table ─────────────────────────
         col_a, col_b = st.columns([1.4, 1])
         with col_a:
             if "dest_region" in df.columns:
@@ -650,18 +704,16 @@ def render_nsl_tab() -> None:
                        .reset_index())
                 geo["nsl_pct"] = (geo["nsl_ot"] / geo["tot"] * 100).round(1)
                 geo = geo.sort_values("nsl_pct")
-                bar_colors = [_GREEN if v >= 75 else (_YELLOW if v >= 65 else _RED)
-                              for v in geo["nsl_pct"]]
                 fig = go.Figure(go.Bar(
                     x=geo["nsl_pct"], y=geo["dest_region"], orientation="h",
-                    marker_color=bar_colors,
+                    marker_color=[_GREEN if v >= 75 else (_YELLOW if v >= 65 else _RED)
+                                  for v in geo["nsl_pct"]],
                     text=[f"{v:.1f}%  ({r:,})" for v, r in zip(geo["nsl_pct"], geo["tot"])],
                     textposition="outside",
                     hovertemplate="%{y}<br>NSL OT: %{x:.1f}%<extra></extra>",
                 ))
                 fig.add_vline(x=75, line_dash="dash", line_color=_PURPLE, line_width=1.5,
-                              annotation_text="75% target",
-                              annotation_position="top right")
+                              annotation_text="75% target", annotation_position="top right")
                 fig.update_layout(
                     title="NSL On-Time % by Destination Region",
                     xaxis=dict(title="NSL OT %", range=[0, 115],
@@ -677,15 +729,44 @@ def render_nsl_tab() -> None:
                         .agg(nsl_ot=("NSL_OT_VOL", "sum"), tot=("TOT_VOL", "sum"))
                         .reset_index())
                 mkts["nsl_pct"] = (mkts["nsl_ot"] / mkts["tot"] * 100).round(1)
-                mkts = mkts.nlargest(15, "tot").sort_values("tot", ascending=False)
-                st.markdown('<div style="font-size:13px;font-weight:700;color:#333;'
-                            'margin-bottom:8px;">Top 15 Destination Markets</div>',
-                            unsafe_allow_html=True)
+                mkts = mkts.nlargest(15, "tot").sort_values("nsl_pct")
                 disp = mkts[["dest_market_cd", "tot", "nsl_pct"]].copy()
                 disp.columns = ["Market", "Volume", "NSL OT %"]
                 disp["Volume"]   = disp["Volume"].apply(lambda x: f"{int(x):,}")
                 disp["NSL OT %"] = disp["NSL OT %"].apply(lambda x: f"{x:.1f}%")
+                st.markdown('<div style="font-size:13px;font-weight:700;color:#333;'
+                            'margin-bottom:8px;">Top 15 Dest Markets by Volume</div>',
+                            unsafe_allow_html=True)
                 st.dataframe(disp, use_container_width=True, hide_index=True, height=420)
+
+        # ── Heatmap: Origin Region × Destination Region NSL% ─────────────
+        if "orig_region" in df.columns and "dest_region" in df.columns:
+            lane_hm = (df.groupby(["orig_region", "dest_region"])
+                       .agg(nsl_ot=("NSL_OT_VOL", "sum"), tot=("TOT_VOL", "sum"))
+                       .reset_index())
+            lane_hm["nsl_pct"] = (lane_hm["nsl_ot"] / lane_hm["tot"] * 100).round(1)
+            pivot_lane = lane_hm.pivot_table(index="orig_region", columns="dest_region",
+                                             values="nsl_pct", aggfunc="mean")
+            fig = go.Figure(go.Heatmap(
+                z=pivot_lane.values,
+                x=pivot_lane.columns.tolist(),
+                y=pivot_lane.index.tolist(),
+                colorscale=[[0, "#DE002E"], [0.4, "#FFB800"], [0.75, "#AAFFAA"], [1, "#008A00"]],
+                zmin=0, zmax=100,
+                text=[[f"{v:.0f}%" if not np.isnan(v) else "—" for v in row]
+                      for row in pivot_lane.values],
+                texttemplate="%{text}",
+                textfont=dict(size=10),
+                hovertemplate="From: %{y}<br>To: %{x}<br>NSL: %{z:.1f}%<extra></extra>",
+                colorbar=dict(title="NSL%", ticksuffix="%"),
+            ))
+            fig.update_layout(
+                title="Lane NSL% Heatmap — Origin Region × Destination Region",
+                xaxis=dict(title="Destination Region", tickangle=-30),
+                yaxis=dict(title="Origin Region"),
+                **_base_layout(margin=dict(l=120, r=16, t=40, b=100)),
+            )
+            st.plotly_chart(fig, use_container_width=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # FAILURE ANALYSIS
@@ -699,29 +780,26 @@ def render_nsl_tab() -> None:
 
             col_c, col_d = st.columns([1.5, 1])
 
-            # ── Stacked bar: Failure volume by bucket / month ──────────────
+            # ── Stacked bar: Failure by bucket / month ────────────────────
             with col_c:
                 if "month_date" in df.columns:
                     fm = (fail_df
                           .groupby([fail_df["month_date"].dt.to_period("M").astype(str), "Bucket"])
                           ["TOT_VOL"].sum().reset_index())
                     fm.columns = ["month", "bucket", "vol"]
-                    ordered_buckets = (fm.groupby("bucket")["vol"]
-                                       .sum().sort_values(ascending=False).index.tolist())
+                    ordered = (fm.groupby("bucket")["vol"]
+                               .sum().sort_values(ascending=False).index.tolist())
                     fig = go.Figure()
-                    for b in ordered_buckets:
+                    for b in ordered:
                         s = fm[fm["bucket"] == b]
                         fig.add_trace(go.Bar(
-                            x=s["month"],
-                            y=s["vol"],
-                            name=b,  # short code in legend
+                            x=s["month"], y=s["vol"], name=b,
                             marker_color=_BUCKET_COLORS.get(b, "#CCC"),
                             text=[f"{int(v):,}" if v > 500 else "" for v in s["vol"]],
                             textposition="inside",
                             textfont=dict(size=9, color="white"),
-                            # full label in hover only
-                            hovertemplate="%{x}<br><b>" + _BUCKET_LABELS.get(b, b) + "</b><br>"
-                                          "%{y:,} failed pkgs<extra></extra>",
+                            hovertemplate="%{x}<br><b>" + _BUCKET_LABELS.get(b, b) +
+                                          "</b><br>%{y:,} failed<extra></extra>",
                         ))
                     fig.update_layout(
                         barmode="stack",
@@ -733,45 +811,62 @@ def render_nsl_tab() -> None:
                     )
                     st.plotly_chart(fig, use_container_width=True)
 
-            # ── Donut: Failure ownership share ────────────────────────────
+            # ── Donut: Failure ownership ──────────────────────────────────
             with col_d:
                 bs = (fail_df.groupby("Bucket")["TOT_VOL"].sum()
                       .reset_index().sort_values("TOT_VOL", ascending=False))
                 bs.columns = ["bucket", "vol"]
-
                 fig = go.Figure(go.Pie(
-                    labels=bs["bucket"],   # short codes on chart
-                    values=bs["vol"],
-                    hole=0.55,
+                    labels=bs["bucket"], values=bs["vol"], hole=0.55,
                     marker_colors=[_BUCKET_COLORS.get(b, "#CCC") for b in bs["bucket"]],
-                    textinfo="label+percent",
-                    textfont_size=11,
-                    # full label in hover tooltip
+                    textinfo="label+percent", textfont_size=11,
                     customdata=[_BUCKET_LABELS.get(b, b) for b in bs["bucket"]],
                     hovertemplate="<b>%{customdata}</b><br>%{value:,} pkgs<br>%{percent}<extra></extra>",
                 ))
+                fig.update_layout(title="Failure Ownership Share", showlegend=False,
+                                  **_base_layout(margin=dict(l=8, r=8, t=40, b=8)))
+                st.plotly_chart(fig, use_container_width=True)
+
+            # ── Heatmap: Bucket × Week failure volume ─────────────────────
+            if "weekending_dt" in df.columns:
+                fh = (fail_df.groupby(["weekending_dt", "Bucket"])["TOT_VOL"]
+                      .sum().reset_index())
+                fh["week_str"] = fh["weekending_dt"].dt.strftime("%d %b")
+                week_ord = (fh[["weekending_dt", "week_str"]]
+                            .drop_duplicates().sort_values("weekending_dt")["week_str"].tolist())
+                pivot_fh = fh.pivot_table(index="Bucket", columns="week_str",
+                                          values="TOT_VOL", aggfunc="sum", fill_value=0)
+                pivot_fh = pivot_fh.reindex(columns=[w for w in week_ord if w in pivot_fh.columns])
+                fig = go.Figure(go.Heatmap(
+                    z=pivot_fh.values,
+                    x=pivot_fh.columns.tolist(),
+                    y=pivot_fh.index.tolist(),
+                    colorscale=[[0, "#F0F4FF"], [0.5, "#FF6200"], [1, "#DE002E"]],
+                    text=[[f"{int(v):,}" if v > 0 else "" for v in row]
+                          for row in pivot_fh.values],
+                    texttemplate="%{text}",
+                    textfont=dict(size=9),
+                    hovertemplate="Bucket: %{y}<br>Week: %{x}<br>%{z:,} failed<extra></extra>",
+                    colorbar=dict(title="Failed Pkgs"),
+                ))
                 fig.update_layout(
-                    title="Failure Ownership Share",
-                    showlegend=False,
-                    **_base_layout(margin=dict(l=8, r=8, t=40, b=8)),
+                    title="Failure Volume Heatmap — Bucket × Week",
+                    xaxis=dict(title="Week Ending", tickangle=-30),
+                    yaxis=dict(title=""),
+                    **_base_layout(margin=dict(l=160, r=16, t=40, b=80)),
                 )
                 st.plotly_chart(fig, use_container_width=True)
 
-            # ── Drill-down: select a bucket to see AWBs ───────────────────
+            # ── Drill-down: select bucket → view AWBs ─────────────────────
             st.markdown("---")
-            st.markdown(
-                '<div style="font-size:13px;font-weight:700;color:#4D148C;'
-                'margin-bottom:8px;">🔍 Drill Down by Failure Bucket</div>',
-                unsafe_allow_html=True,
-            )
+            st.markdown('<div style="font-size:13px;font-weight:700;color:#4D148C;'
+                        'margin-bottom:8px;">🔍 Drill Down by Failure Bucket</div>',
+                        unsafe_allow_html=True)
             bucket_opts = ["— Select a bucket —"] + bs["bucket"].tolist()
-            bucket_labels_map = {b: _BUCKET_LABELS.get(b, b) for b in bs["bucket"].tolist()}
             sel_bucket = st.selectbox(
-                "Select bucket to inspect AWBs",
-                bucket_opts,
-                format_func=lambda x: bucket_labels_map.get(x, x),
-                key="nsl_bucket_drill",
-                label_visibility="collapsed",
+                "bucket", bucket_opts,
+                format_func=lambda x: _BUCKET_LABELS.get(x, x),
+                key="nsl_bucket_drill", label_visibility="collapsed",
             )
             if sel_bucket != "— Select a bucket —":
                 drill = fail_df[fail_df["Bucket"] == sel_bucket].copy()
@@ -779,49 +874,36 @@ def render_nsl_tab() -> None:
                               "dest_market_cd", "Service", "Service_Detail",
                               "pof_cause", "pof_cause_label", "NSL_F_VOL"]
                 drill_cols = [c for c in drill_cols if c in drill.columns]
-                st.markdown(
-                    f'<div style="font-size:12px;color:#555;margin-bottom:6px;">'
-                    f'<b>{len(drill):,}</b> failed AWBs in '
-                    f'<b>{_BUCKET_LABELS.get(sel_bucket, sel_bucket)}</b></div>',
-                    unsafe_allow_html=True,
-                )
-                st.dataframe(
-                    drill[drill_cols].reset_index(drop=True),
-                    use_container_width=True,
-                    height=320,
-                )
+                st.markdown(f'<div style="font-size:12px;color:#555;margin-bottom:6px;">'
+                            f'<b>{len(drill):,}</b> failed AWBs in '
+                            f'<b>{_BUCKET_LABELS.get(sel_bucket, sel_bucket)}</b></div>',
+                            unsafe_allow_html=True)
+                st.dataframe(drill[drill_cols].reset_index(drop=True),
+                             use_container_width=True, height=320)
                 buf = io.StringIO()
                 drill[drill_cols].to_csv(buf, index=False)
-                st.download_button(
-                    f"⬇️  Download {sel_bucket} AWBs (CSV)",
-                    buf.getvalue().encode(),
-                    f"nsl_failed_{sel_bucket.lower().replace(' ', '_')}.csv",
-                    "text/csv",
-                    key="nsl_bucket_dl",
-                )
+                st.download_button(f"⬇️  Download {sel_bucket} AWBs (CSV)",
+                                   buf.getvalue().encode(),
+                                   f"nsl_failed_{sel_bucket.lower().replace(' ','_')}.csv",
+                                   "text/csv", key="nsl_bucket_dl")
 
-            # ── Top POF Causes (code + full label in table) ───────────────
+            # ── Top POF Causes table (full labels) ────────────────────────
             if "pof_cause" in df.columns and "NSL_OT_VOL" in df.columns:
                 st.markdown("---")
-                st.markdown(
-                    '<div style="font-size:13px;font-weight:700;color:#333;'
-                    'margin-bottom:8px;">Top POF Causes</div>',
-                    unsafe_allow_html=True,
-                )
+                st.markdown('<div style="font-size:13px;font-weight:700;color:#333;'
+                            'margin-bottom:8px;">Top POF Causes</div>',
+                            unsafe_allow_html=True)
                 pof = (df[df["NSL_OT_VOL"] == 0]
                        .groupby("pof_cause")["TOT_VOL"].sum()
                        .reset_index().nlargest(15, "TOT_VOL"))
                 pof.columns = ["code", "Failed Shipments"]
                 pof_total = pof["Failed Shipments"].sum()
-                # Full label only in the table
                 pof["POF Cause"] = pof["code"].apply(_pof_label)
                 pof["% of Failures"] = (pof["Failed Shipments"] / pof_total * 100
                                         ).round(1).astype(str) + "%"
                 pof["Failed Shipments"] = pof["Failed Shipments"].apply(lambda x: f"{int(x):,}")
-                st.dataframe(
-                    pof[["POF Cause", "Failed Shipments", "% of Failures"]],
-                    use_container_width=True, hide_index=True,
-                )
+                st.dataframe(pof[["POF Cause", "Failed Shipments", "% of Failures"]],
+                             use_container_width=True, hide_index=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # CUSTOMERS
@@ -837,155 +919,191 @@ def render_nsl_tab() -> None:
             ).reset_index()
             cg["NSL OT %"] = (cg["nsl_ot"] / cg["vol"] * 100).round(1)
             ct = cg.nlargest(top_n, "vol").sort_values("vol", ascending=False)
-            fig = go.Figure()
-            fig.add_trace(go.Bar(
-                x=ct["shpr_co_nm"], y=ct["NSL OT %"], name="NSL OT %",
-                marker_color=_PURPLE,
-                hovertemplate="%{x}<br>NSL OT: %{y:.1f}%<extra></extra>",
+
+            # ── Bubble chart: Volume vs NSL% ─────────────────────────────
+            fig = go.Figure(go.Scatter(
+                x=ct["vol"], y=ct["NSL OT %"],
+                mode="markers+text",
+                marker=dict(
+                    size=ct["vol"] / ct["vol"].max() * 50 + 8,
+                    color=ct["NSL OT %"],
+                    colorscale=[[0, "#DE002E"], [0.5, "#FFB800"], [1, "#008A00"]],
+                    cmin=0, cmax=100,
+                    showscale=True,
+                    colorbar=dict(title="NSL%", ticksuffix="%"),
+                    line=dict(width=1, color="white"),
+                ),
+                text=ct["shpr_co_nm"].apply(lambda x: x[:18] if len(x) > 18 else x),
+                textposition="top center",
+                textfont=dict(size=9),
+                hovertemplate="<b>%{text}</b><br>Volume: %{x:,}<br>NSL OT: %{y:.1f}%<extra></extra>",
             ))
-            fig.add_hline(y=75, line_dash="dash", line_color=_ORANGE, line_width=1.5,
-                          annotation_text="75% NSL target")
+            fig.add_hline(y=75, line_dash="dash", line_color=_RED, line_width=1.5,
+                          annotation_text="75% target")
             fig.update_layout(
-                title=f"Top {top_n} Customers — NSL On-Time %",
-                xaxis=dict(title="", tickangle=-35),
-                yaxis=dict(title="NSL OT %", range=[0, 110],
-                           ticksuffix="%", gridcolor="#F0F0F0"),
-                **_base_layout(),
+                title=f"Top {top_n} Customers — Volume vs NSL% (bubble size = volume)",
+                xaxis=dict(title="Total Shipments", gridcolor="#F0F0F0"),
+                yaxis=dict(title="NSL OT %", ticksuffix="%",
+                           range=[0, 110], gridcolor="#F0F0F0"),
+                **_base_layout(margin=dict(l=16, r=80, t=40, b=16)),
             )
             st.plotly_chart(fig, use_container_width=True)
+
+            # ── Bar chart: top customers by NSL% ─────────────────────────
+            ct_sorted = ct.sort_values("NSL OT %")
+            fig2 = go.Figure(go.Bar(
+                x=ct_sorted["NSL OT %"], y=ct_sorted["shpr_co_nm"],
+                orientation="h",
+                marker_color=[_GREEN if v >= 75 else (_YELLOW if v >= 60 else _RED)
+                              for v in ct_sorted["NSL OT %"]],
+                text=[f"{v:.1f}%" for v in ct_sorted["NSL OT %"]],
+                textposition="outside",
+                hovertemplate="<b>%{y}</b><br>NSL OT: %{x:.1f}%<extra></extra>",
+            ))
+            fig2.add_vline(x=75, line_dash="dash", line_color=_PURPLE, line_width=1.5,
+                           annotation_text="75% target", annotation_position="top right")
+            fig2.update_layout(
+                title=f"Top {top_n} Customers — NSL On-Time %",
+                xaxis=dict(title="NSL OT %", range=[0, 115],
+                           ticksuffix="%", gridcolor="#F0F0F0"),
+                yaxis=dict(title=""),
+                height=max(300, top_n * 22),
+                **_base_layout(margin=dict(l=160, r=80, t=40, b=16)),
+            )
+            st.plotly_chart(fig2, use_container_width=True)
 
             disp = ct[["shpr_co_nm", "vol", "NSL OT %"]].copy()
             disp.columns = ["Customer", "Volume", "NSL OT %"]
             disp["Volume"]   = disp["Volume"].apply(lambda x: f"{int(x):,}")
             disp["NSL OT %"] = disp["NSL OT %"].apply(lambda x: f"{x:.1f}%")
             st.dataframe(disp, use_container_width=True, hide_index=True)
-
             buf = io.StringIO()
             cg.to_csv(buf, index=False)
             st.download_button("⬇️  Download Full Customer Table (CSV)",
-                               buf.getvalue().encode(), "nsl_customers.csv", "text/csv")
+                               buf.getvalue().encode(), "nsl_customers.csv", "text/csv",
+                               key="nsl_cust_dl")
 
     # ══════════════════════════════════════════════════════════════════════════
     # SCAN COMPLIANCE
     # ══════════════════════════════════════════════════════════════════════════
     with t_scan:
-        if "scan_label" not in df.columns:
-            st.info("Pickup scan columns not available.")
+        scan_cols_present = any(c in df.columns for c in ["scan_label", "pux_event_cd"])
+        if not scan_cols_present:
+            st.info("Pickup scan columns not available in this dataset.")
         else:
             sc1, sc2 = st.columns(2)
-            with sc1:
-                sd = df["scan_label"].value_counts().reset_index()
-                sd.columns = ["scan_type", "count"]
-                cmap = {
-                    "Standard PUP (Clean)": _GREEN,
-                    "PUX Exception":        _ORANGE,
-                    "No Scan":              _RED,
-                }
-                fig = go.Figure(go.Bar(
-                    x=sd["scan_type"], y=sd["count"],
-                    marker_color=[cmap.get(s, _GREY) for s in sd["scan_type"]],
-                    text=[f"{v:,} ({v / len(df) * 100:.1f}%)" for v in sd["count"]],
-                    textposition="outside",
-                    hovertemplate="%{x}<br>%{y:,}<extra></extra>",
-                ))
-                fig.update_layout(
-                    title="Pickup Scan Type Distribution",
-                    yaxis=dict(title="Shipments", gridcolor="#F0F0F0"),
-                    xaxis=dict(title=""),
-                    **_base_layout(),
-                )
-                st.plotly_chart(fig, use_container_width=True)
 
-            with sc2:
-                if "pckup_stop_typ_cd" in df.columns:
-                    stop_map = {"R": "Regular", "C": "Call-tag",
-                                "O": "On-call",  "M": "Mass", "T": "Other"}
-                    df2 = df.copy()
-                    df2["stop_label"] = df2["pckup_stop_typ_cd"].map(stop_map).fillna("Unknown")
-                    ss = (df2.groupby("stop_label").apply(lambda g: pd.Series({
-                        "Clean (%)":   (g["scan_type_num"] == 8.0).sum() / len(g) * 100,
-                        "PUX (%)":     (g["scan_type_num"] == 29.0).sum() / len(g) * 100,
-                        "No Scan (%)": g["scan_type_num"].isna().sum() / len(g) * 100,
-                    })).reset_index())
-                    fig = go.Figure()
-                    for lbl, col_name, color in [
-                        ("Clean (%)",   "Clean Scan",    _GREEN),
-                        ("PUX (%)",     "PUX Exception", _ORANGE),
-                        ("No Scan (%)", "No Scan",       _RED),
-                    ]:
-                        fig.add_trace(go.Bar(
-                            x=ss["stop_label"], y=ss[lbl].round(1),
-                            name=col_name, marker_color=color,
-                            hovertemplate="%{x}<br>%{y:.1f}%<extra>" + col_name + "</extra>",
-                        ))
-                    fig.update_layout(
-                        barmode="stack",
-                        title="Scan Type % by Stop Type",
-                        yaxis=dict(title="%", ticksuffix="%",
-                                   range=[0, 105], gridcolor="#F0F0F0"),
-                        xaxis=dict(title="Stop Type"),
-                        **_base_layout(),
-                    )
-                    st.plotly_chart(fig, use_container_width=True)
-
-            # PUX breakdown
-            if "pkg_pckup_excp_typ_cd" in df.columns:
-                pux = df[df["scan_type_num"] == 29.0].copy()
-                if len(pux):
-                    st.markdown(
-                        '<div style="font-size:13px;font-weight:700;color:#333;'
-                        'margin-top:8px;margin-bottom:8px;">PUX Exception Code Breakdown</div>',
-                        unsafe_allow_html=True,
-                    )
-                    pc = pux["pkg_pckup_excp_typ_cd"].value_counts().reset_index()
-                    pc.columns = ["code", "count"]
-                    pc["code_num"] = pd.to_numeric(pc["code"], errors="coerce")
-                    pc["label"] = pc["code_num"].apply(
-                        lambda x: _PUX_NAMES.get(int(x), f"PUX{int(x):02d} — Unknown")
-                        if pd.notna(x) else "Unknown"
-                    )
-                    pc["pct"] = (pc["count"] / len(df) * 100).round(2)
+            if "scan_label" in df.columns:
+                with sc1:
+                    sd = df["scan_label"].value_counts().reset_index()
+                    sd.columns = ["scan_type", "count"]
+                    cmap = {"Standard PUP (Clean)": _GREEN,
+                            "PUX Exception": _ORANGE, "No Scan": _RED}
                     fig = go.Figure(go.Bar(
-                        x=pc["label"], y=pc["count"],
-                        marker_color=_ORANGE,
-                        text=[f"{v:,}" for v in pc["count"]],
+                        x=sd["scan_type"], y=sd["count"],
+                        marker_color=[cmap.get(s, _GREY) for s in sd["scan_type"]],
+                        text=[f"{v:,} ({v / max(len(df), 1) * 100:.1f}%)" for v in sd["count"]],
                         textposition="outside",
-                        customdata=pc["pct"],
-                        hovertemplate="%{x}<br>%{y:,} (%{customdata:.2f}%)<extra></extra>",
+                        hovertemplate="%{x}<br>%{y:,}<extra></extra>",
                     ))
                     fig.update_layout(
-                        title="PUX Exception Volume by Code",
-                        xaxis=dict(title="", tickangle=-30),
+                        title="Scan Type Distribution",
                         yaxis=dict(title="Shipments", gridcolor="#F0F0F0"),
-                        **_base_layout(margin=dict(l=16, r=16, t=40, b=120)),
+                        xaxis=dict(title=""),
+                        **_base_layout(margin=dict(l=16, r=16, t=40, b=60)),
                     )
                     st.plotly_chart(fig, use_container_width=True)
 
-            # Weekly compliance trend
-            if "weekending_dt" in df.columns and not df["weekending_dt"].isna().all():
-                ws_df = (df.groupby("weekending_dt").apply(lambda g: pd.Series({
-                    "clean_pct":  (g["scan_type_num"] == 8.0).sum() / len(g) * 100,
-                    "pux_pct":    (g["scan_type_num"] == 29.0).sum() / len(g) * 100,
-                    "noscan_pct": g["scan_type_num"].isna().sum() / len(g) * 100,
-                })).reset_index().sort_values("weekending_dt"))
-                fig = go.Figure()
-                for col_n, color, lbl in [
-                    ("clean_pct",  _GREEN,  "Clean Scan"),
-                    ("pux_pct",    _ORANGE, "PUX Exception"),
-                    ("noscan_pct", _RED,    "No Scan"),
-                ]:
-                    fig.add_trace(go.Scatter(
-                        x=ws_df["weekending_dt"], y=ws_df[col_n].round(1),
-                        name=lbl, mode="lines+markers",
-                        line=dict(color=color, width=2.5),
-                        marker=dict(size=5),
-                        hovertemplate="%{x|%d %b %Y}<br>%{y:.1f}%<extra>" + lbl + "</extra>",
+            if "pux_event_cd" in df.columns:
+                with sc2:
+                    pux = df["pux_event_cd"].value_counts().head(12).reset_index()
+                    pux.columns = ["event", "count"]
+                    fig2 = go.Figure(go.Bar(
+                        x=pux["count"], y=pux["event"],
+                        orientation="h",
+                        marker_color=_ORANGE,
+                        text=[f"{v:,}" for v in pux["count"]],
+                        textposition="outside",
+                        hovertemplate="%{y}<br>%{x:,}<extra></extra>",
                     ))
-                fig.update_layout(
-                    title="Weekly Scan Compliance Trend",
-                    yaxis=dict(title="%", ticksuffix="%",
-                               range=[0, 105], gridcolor="#F0F0F0"),
-                    xaxis=dict(title="", gridcolor="#F0F0F0"),
-                    **_base_layout(),
+                    fig2.update_layout(
+                        title="Top PUX Event Codes",
+                        xaxis=dict(title="Count", gridcolor="#F0F0F0"),
+                        yaxis=dict(title=""),
+                        **_base_layout(margin=dict(l=120, r=60, t=40, b=16)),
+                    )
+                    st.plotly_chart(fig2, use_container_width=True)
+
+            if "loc_id" in df.columns and "scan_label" in df.columns:
+                st.markdown("---")
+                loc_scan = df.groupby("loc_id").agg(
+                    total=("TOT_VOL", "sum"),
+                    clean=("scan_label", lambda x: (x == "Standard PUP (Clean)").sum()),
+                ).reset_index()
+                loc_scan["Scan Compliance %"] = (
+                    loc_scan["clean"] / loc_scan["total"].clip(lower=1) * 100
+                ).round(1)
+                loc_scan = loc_scan[loc_scan["total"] >= 10].nlargest(25, "Scan Compliance %")
+
+                fig3 = go.Figure(go.Bar(
+                    x=loc_scan["Scan Compliance %"],
+                    y=loc_scan["loc_id"],
+                    orientation="h",
+                    marker_color=[_GREEN if v >= 90 else (_YELLOW if v >= 75 else _RED)
+                                  for v in loc_scan["Scan Compliance %"]],
+                    text=[f"{v:.1f}%" for v in loc_scan["Scan Compliance %"]],
+                    textposition="outside",
+                    hovertemplate="<b>%{y}</b><br>Scan Compliance: %{x:.1f}%<extra></extra>",
+                ))
+                fig3.add_vline(x=90, line_dash="dash", line_color=_PURPLE, line_width=1.5,
+                               annotation_text="90% target")
+                fig3.update_layout(
+                    title="Top 25 LOC IDs by Scan Compliance % (min 10 shipments)",
+                    xaxis=dict(title="Scan Compliance %", range=[0, 115],
+                               ticksuffix="%", gridcolor="#F0F0F0"),
+                    yaxis=dict(title="LOC ID"),
+                    height=600,
+                    **_base_layout(margin=dict(l=80, r=80, t=40, b=16)),
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig3, use_container_width=True)
+
+            if "weekending_dt" in df.columns and "scan_label" in df.columns:
+                wk_scan = df.groupby("weekending_dt").agg(
+                    total=("TOT_VOL", "sum"),
+                    clean=("scan_label", lambda x: (x == "Standard PUP (Clean)").sum()),
+                ).reset_index()
+                wk_scan["Compliance %"] = (
+                    wk_scan["clean"] / wk_scan["total"].clip(lower=1) * 100
+                ).round(1)
+                wk_scan = wk_scan.sort_values("weekending_dt")
+
+                fig4 = go.Figure()
+                fig4.add_trace(go.Bar(
+                    x=wk_scan["weekending_dt"], y=wk_scan["total"],
+                    name="Total Shipments", marker_color=_GREY,
+                    yaxis="y", opacity=0.4,
+                    hovertemplate="%{x|%d %b}<br>Total: %{y:,}<extra></extra>",
+                ))
+                fig4.add_trace(go.Scatter(
+                    x=wk_scan["weekending_dt"], y=wk_scan["Compliance %"],
+                    name="Scan Compliance %", mode="lines+markers+text",
+                    line=dict(color=_PURPLE, width=2.5),
+                    marker=dict(size=7, color=_PURPLE),
+                    text=[f"{v:.1f}%" for v in wk_scan["Compliance %"]],
+                    textposition="top center",
+                    textfont=dict(size=9),
+                    yaxis="y2",
+                    hovertemplate="%{x|%d %b}<br>Compliance: %{y:.1f}%<extra></extra>",
+                ))
+                fig4.add_hline(y=90, line_dash="dash", line_color=_RED, line_width=1,
+                               yref="y2", annotation_text="90% target")
+                fig4.update_layout(
+                    title="Weekly Scan Compliance Trend",
+                    xaxis=dict(title="Week", tickangle=-30, gridcolor="#F0F0F0"),
+                    yaxis=dict(title="Shipments", gridcolor="#F0F0F0"),
+                    yaxis2=dict(title="Compliance %", overlaying="y", side="right",
+                                range=[0, 110], ticksuffix="%"),
+                    legend=dict(orientation="h", x=0, y=1.08),
+                    **_base_layout(margin=dict(l=16, r=80, t=60, b=60)),
+                )
+                st.plotly_chart(fig4, use_container_width=True)
