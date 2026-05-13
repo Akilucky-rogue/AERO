@@ -1103,7 +1103,7 @@ def render_nsl_tab() -> None:
                     yaxis=dict(title="Shipments", gridcolor="#F0F0F0"),
                     yaxis2=dict(title="Compliance %", overlaying="y", side="right",
                                 range=[0, 110], ticksuffix="%"),
-                    legend=dict(orientation="h", x=0, y=1.08),
+
                     **_base_layout(margin=dict(l=16, r=80, t=60, b=60)),
                 )
                 st.plotly_chart(fig4, use_container_width=True)
