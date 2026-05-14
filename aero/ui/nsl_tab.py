@@ -198,6 +198,100 @@ def _load_cache() -> tuple:
         return None, None
 
 
+# ── scorecard cache helpers ───────────────────────────────────────────────────
+def _scorecard_cache_path() -> str:
+    return os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "data", "_scorecard_cache.pkl"
+    )
+
+
+def _save_scorecard(data: dict) -> None:
+    try:
+        with open(_scorecard_cache_path(), "wb") as f:
+            pickle.dump(data, f, protocol=4)
+    except Exception:
+        pass
+
+
+def _load_scorecard() -> dict:
+    try:
+        p = _scorecard_cache_path()
+        if not os.path.exists(p):
+            return {}
+        with open(p, "rb") as f:
+            return pickle.load(f)
+    except Exception:
+        return {}
+
+
+def _parse_scorecard(file_bytes: bytes) -> dict:
+    """
+    Parse the Shrikant-India sheet of MD Scorecard xlsb.
+    Returns dict: metric_name → {value, goal, period, pct}.
+    """
+    from pyxlsb import open_workbook
+    import io as _io
+
+    # Metric definitions: (row_index, friendly_name, higher_is_better)
+    METRIC_MAP = [
+        (10, "NSL IB (Parcel+Freight)",        True),
+        (11, "NSL + 24",                        True),
+        (12, "Dest Scan Compliance",            True),
+        (13, "Transit Scan Compliance",         True),
+        (14, "Clearance-related Failures",      False),  # lower is better
+        (15, "Damage Claims Filed (Per 1K)",    False),
+        (16, "Missing Packages",                False),
+        (18, "OTC",                             True),
+        (19, "CTC",                             True),
+        (20, "NSL Clearance Failures",          False),
+        (21, "Intra MEISA NSL – Parcel",        True),
+        (22, "Intra MEISA NSL – Freight",       True),
+        # Corporate goals rows
+        (5,  "Corp Goal: IB Parcel",            True),
+        (6,  "Corp Goal: IB Freight",           True),
+        (7,  "Corp Goal: OB Parcel",            True),
+        (8,  "Corp Goal: OB Freight",           True),
+    ]
+
+    # Column priority: WE0508(33) → Current WK(36) → Current WK(40) → May(29)
+    VAL_COLS  = [33, 36, 40, 29, 25]
+    GOAL_COLS = [34, 38, 23, 14, 7]
+
+    with open_workbook(_io.BytesIO(file_bytes)) as wb:
+        with wb.get_sheet("Shrikant-India") as sheet:
+            all_rows = {}
+            for i, row in enumerate(sheet.rows()):
+                vals = {c.c: c.v for c in row if c.v is not None}
+                all_rows[i] = vals
+            # Detect active week label from row 4 col 33
+            col33_label = all_rows.get(4, {}).get(33, "WE????")
+
+    results = {}
+    for row_i, name, higher_better in METRIC_MAP:
+        row = all_rows.get(row_i, {})
+        val = None
+        for vc in VAL_COLS:
+            v = row.get(vc)
+            if v is not None and isinstance(v, (int, float)):
+                val = v
+                break
+        goal = None
+        for gc in GOAL_COLS:
+            g = row.get(gc)
+            if g is not None and isinstance(g, (int, float)):
+                goal = g
+                break
+        results[name] = {
+            "value": val,
+            "goal": goal,
+            "period": str(col33_label),
+            "higher_is_better": higher_better,
+        }
+
+    return results
+
+
 def _load_india_loc_ids() -> dict:
     """Load India LOC ID → City mapping from CSV."""
     csv_path = os.path.join(
@@ -386,6 +480,38 @@ def render_nsl_tab() -> None:
         st.session_state["nsl_file_id"]  = file_id
         st.rerun()
 
+    # ── MD Scorecard uploader ────────────────────────────────────────────────
+    with st.expander("📋  Upload MD Scorecard (optional — for ESP KPI cards)", expanded=False):
+        sc_col1, sc_col2 = st.columns([3, 1])
+        sc_uploaded = sc_col1.file_uploader(
+            "MD Scorecard .xlsb (Shrikant-India sheet)",
+            type=["xlsb"],
+            key="nsl_scorecard_upload",
+            help="Uploads data from the Shrikant-India tab to populate ESP KPI cards.",
+        )
+        sc_submit = sc_col2.button("✅ Load Scorecard", key="nsl_sc_submit",
+                                   disabled=(sc_uploaded is None),
+                                   use_container_width=True)
+        if sc_uploaded and sc_submit:
+            try:
+                with st.spinner("Parsing scorecard…"):
+                    sc_bytes = sc_uploaded.read()
+                    sc_parsed = _parse_scorecard(sc_bytes)
+                _save_scorecard(sc_parsed)
+                st.session_state["nsl_scorecard"] = sc_parsed
+                period = (list(sc_parsed.values())[0].get("period", "WE????")
+                          if sc_parsed else "")
+                st.success(f"✅ Scorecard loaded — {len(sc_parsed)} metrics for **{period}**")
+                st.rerun()
+            except Exception as e:
+                st.error(f"❌ Could not parse scorecard: {e}")
+        # Show current loaded scorecard summary
+        current_sc = st.session_state.get("nsl_scorecard") or _load_scorecard()
+        if current_sc:
+            period_label = (list(current_sc.values())[0].get("period", "")
+                            if current_sc else "")
+            sc_col1.caption(f"✅ Scorecard active — **{period_label}** — {len(current_sc)} metrics loaded")
+
     # ── auto-load on session start: DB first, then local cache ───────────────
     if st.session_state.get("nsl_df") is None:
         loaded = False
@@ -565,20 +691,143 @@ def render_nsl_tab() -> None:
     nsl_color  = _GREEN if nsl_pct  >= 75 else (_YELLOW if nsl_pct  >= 65 else _RED)
     scan_color = _GREEN if scan_comp >= 70 else (_YELLOW if scan_comp >= 50 else _RED)
 
+    # ── Load scorecard data ──────────────────────────────────────────────────
+    sc_data = st.session_state.get("nsl_scorecard") or _load_scorecard()
+    if sc_data:
+        st.session_state["nsl_scorecard"] = sc_data
+
+    def _sc_val(metric, pct=True, decimals=1):
+        m = sc_data.get(metric, {})
+        v = m.get("value")
+        if v is None:
+            return None, None, "—"
+        goal = m.get("goal")
+        higher = m.get("higher_is_better", True)
+        if pct:
+            disp = f"{v * 100:.{decimals}f}%"
+        else:
+            disp = f"{v:.5f}" if v < 0.01 else f"{v:.3f}"
+        if goal is not None:
+            ok = (v >= goal) if higher else (v <= goal)
+            col = _GREEN if ok else _RED
+        else:
+            col = _GREY
+        return v, goal, disp, col
+
+    # NSL + 24 card
+    _, _, nsl24_disp, *_nsl24 = _sc_val("NSL + 24")
+    nsl24_color = _nsl24[0] if _nsl24 else _GREY
+    nsl24_sub   = f"Goal: {sc_data.get('NSL + 24', {}).get('goal', 0) * 100:.1f}%" if sc_data.get("NSL + 24", {}).get("goal") else "MD Scorecard"
+    # Clearance failures card
+    _, _, clf_disp, *_clf = _sc_val("Clearance-related Failures")
+    clf_color = _clf[0] if _clf else _GREY
+    # Damage claims card
+    dmg = sc_data.get("Damage Claims Filed (Per 1K)", {})
+    dmg_v = dmg.get("value")
+    dmg_goal = dmg.get("goal")
+    dmg_disp = f"{dmg_v * 1000:.3f} /1K" if dmg_v is not None else "—"
+    dmg_color = (_GREEN if dmg_v <= dmg_goal else _RED) if (dmg_v is not None and dmg_goal) else _GREY
+
+    sc_period = (list(sc_data.values())[0].get("period", "Scorecard") if sc_data else "Scorecard")
+
     st.markdown("<br>", unsafe_allow_html=True)
     k1, k2, k3, k4, k5, k6 = st.columns(6)
     render_kpi_card(k1, "Total Shipments", f"{tot_vol:,}",      color=_PURPLE, icon="📦")
     render_kpi_card(k2, "NSL On-Time",     f"{nsl_pct:.1f}%",   color=nsl_color,
                     subtitle=f"{nsl_vol:,} of {tot_vol:,}")
-    render_kpi_card(k3, "NSL + 24",        "— Pending",         color=_GREY,
-                    subtitle="Definition TBD")
+    render_kpi_card(k3, "NSL + 24",        nsl24_disp,          color=nsl24_color,
+                    subtitle=nsl24_sub)
     render_kpi_card(k4, "Scan Compliance", f"{scan_comp:.1f}%", color=scan_color,
                     subtitle="Clean PUP / total shipments")
-    render_kpi_card(k5, "ESP Metrics",     "— Pending",         color=_GREY,
-                    subtitle="Clearance stats — coming soon")
-    render_kpi_card(k6, "Damaged Goods",   "— Pending",         color=_GREY,
-                    subtitle="Damage data — coming soon")
+    render_kpi_card(k5, "Clr. Failures",  clf_disp,            color=clf_color,
+                    subtitle=f"Goal: {sc_data.get('Clearance-related Failures',{}).get('goal', 0)*100:.1f}%" if sc_data.get('Clearance-related Failures',{}).get('goal') else "Clearance-related")
+    render_kpi_card(k6, "Damage /1K",     dmg_disp,            color=dmg_color,
+                    subtitle=f"Goal: {dmg_goal * 1000:.3f}/1K" if dmg_goal else "Damage Claims")
     st.markdown("<br>", unsafe_allow_html=True)
+
+
+    # ── MD Scorecard Panel ────────────────────────────────────────────────────
+    if sc_data:
+        _SC_GROUPS = {
+            "📊 ESP Metrics": [
+                "NSL IB (Parcel+Freight)", "NSL + 24",
+                "Dest Scan Compliance", "Transit Scan Compliance",
+                "Clearance-related Failures", "Damage Claims Filed (Per 1K)",
+                "Missing Packages", "NSL Clearance Failures",
+            ],
+            "🏆 Corporate Goals": [
+                "Corp Goal: IB Parcel", "Corp Goal: IB Freight",
+                "Corp Goal: OB Parcel", "Corp Goal: OB Freight",
+            ],
+            "📌 Other KPIs": [
+                "OTC", "CTC",
+                "Intra MEISA NSL – Parcel", "Intra MEISA NSL – Freight",
+            ],
+        }
+
+        def _fmt_metric(m_dict, pct_override=None):
+            v = m_dict.get("value")
+            goal = m_dict.get("goal")
+            higher = m_dict.get("higher_is_better", True)
+            period = m_dict.get("period", "")
+            if v is None:
+                return "—", "—", _GREY, "•"
+            # format value
+            name_check = ""  # placeholder
+            is_pct = (v <= 1.5)  # heuristic: values like 0.69 are percentages
+            if pct_override is not None:
+                is_pct = pct_override
+            if is_pct:
+                v_str = f"{v * 100:.1f}%"
+                g_str = f"{goal * 100:.1f}%" if goal is not None else "—"
+            else:
+                v_str = f"{v:.5f}"
+                g_str = f"{goal:.5f}" if goal is not None else "—"
+            # colour
+            if goal is not None:
+                ok = (v >= goal * 0.995) if higher else (v <= goal * 1.005)
+                clr = _GREEN if ok else _RED
+                arrow = "▲" if ok else "▼"
+            else:
+                clr, arrow = _GREY, "•"
+            return v_str, g_str, clr, arrow
+
+        period_label = (list(sc_data.values())[0].get("period", "Scorecard")
+                        if sc_data else "Scorecard")
+        with st.expander(f"📋  MD Scorecard — India ({period_label})", expanded=True):
+            for grp_name, metrics in _SC_GROUPS.items():
+                st.markdown(f'<div style="font-size:12px;font-weight:700;color:#4D148C;'
+                            f'margin:10px 0 6px;">{grp_name}</div>',
+                            unsafe_allow_html=True)
+                cols = st.columns(len(metrics)) if len(metrics) <= 6 else st.columns(4)
+                for ci, mname in enumerate(metrics):
+                    col = cols[ci % len(cols)]
+                    m = sc_data.get(mname, {})
+                    is_dmg = "Per 1K" in mname
+                    if is_dmg:
+                        v = m.get("value"); goal = m.get("goal")
+                        v_str = f"{v * 1000:.3f}" if v is not None else "—"
+                        g_str = f"{goal * 1000:.3f}" if goal is not None else "—"
+                        clr = (_GREEN if (v is not None and goal is not None and v <= goal * 1.005)
+                               else _RED) if v is not None else _GREY
+                        arrow = "▲" if (v is not None and goal is not None and v <= goal * 1.005) else "▼" if v is not None else "•"
+                    else:
+                        v_str, g_str, clr, arrow = _fmt_metric(m)
+                    short = mname.replace("Corp Goal: ", "").replace("Intra MEISA NSL – ", "MEISA ")
+                    col.markdown(
+                        f'<div style="background:#F8F9FC;border:1px solid #E5E7EB;'
+                        f'border-radius:8px;padding:10px 12px;text-align:center;">'
+                        f'<div style="font-size:10px;color:#6B7280;font-weight:600;'
+                        f'text-transform:uppercase;letter-spacing:0.3px;margin-bottom:4px;">'
+                        f'{short}</div>'
+                        f'<div style="font-size:18px;font-weight:800;color:{clr};">'
+                        f'{arrow} {v_str}</div>'
+                        f'<div style="font-size:10px;color:#9CA3AF;margin-top:2px;">'
+                        f'Goal: {g_str}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+                st.markdown("")
 
     # ── analytics tabs ────────────────────────────────────────────────────────
     t_trend, t_geo, t_fail, t_cust, t_scan = st.tabs([
@@ -1107,3 +1356,4 @@ def render_nsl_tab() -> None:
                     **_base_layout(margin=dict(l=16, r=80, t=60, b=60)),
                 )
                 st.plotly_chart(fig4, use_container_width=True)
+ 
