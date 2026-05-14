@@ -64,6 +64,26 @@ total_trace_time = 0
 def render():
     """Render the Station Resource Tracker content (called from station_planner.py tab)."""
 
+    # Re-initialize session state every render (module-level inits only run once
+    # due to Python's module cache, so we guard here to survive Streamlit reruns)
+    _ss_defaults = {
+        "calculate_clicked": False,
+        "osa_excluded_tasks": set(),
+        "osa_custom_tasks": [],
+        "custom_name": "",
+        "custom_tact": 0.0,
+        "custom_param": 0.0,
+        "calculated_osa_time": 0,
+        "calculated_lasa_time": 0,
+        "calculated_dispatcher_time": 0,
+        "calculated_trace_time": 0,
+        "lasa_excluded_tasks": set(),
+        "lasa_custom_tasks": [],
+    }
+    for _k, _v in _ss_defaults.items():
+        if _k not in st.session_state:
+            st.session_state[_k] = _v
+
     # Re-bind globals that the UI code mutates
     global total_osa_time, total_lasa_time, total_dispatcher_time, total_trace_time
 
@@ -1424,19 +1444,4 @@ def render():
         # Main highlight card - Final Agents Required
         st.markdown(f"""
         <div style="
-            background: linear-gradient(135deg, #4D148C 0%, #671CAA 100%);
-            border-radius: 16px;
-            padding: 1.5rem 2rem;
-            margin: 1rem 0;
-            box-shadow: 0 6px 20px rgba(77,20,140,0.3);
-            text-align: center;
-        ">
-            <div style="color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
-                Final OSA's Required
-            </div>
-                <div style="color: #FF6200; font-size: 48px; font-weight: 800; font-family: 'DM Sans', sans-serif;">
-                    {math.ceil(final_agents_total)}
-                </div>
-        </div>
-        """, unsafe_allow_html=True)
-
+           
