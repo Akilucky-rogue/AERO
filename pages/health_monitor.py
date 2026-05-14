@@ -101,8 +101,48 @@ def _fmt_area(value):
         return "0"
 
 
+def _load_famis_df(file_bytes_or_path, filename: str) -> None:
+    """Parse, validate and store FAMIS data in session state + Excel store."""
+    from aero.data.inbox_loader import parse_famis_file
+    valid_cols = list(FAMIS_ALLOWED_HEADERS.keys())
+    famis_df = parse_famis_file(file_bytes_or_path)
+    famis_df = famis_df[[c for c in famis_df.columns if c in valid_cols]]
+    st.session_state["famis_data_raw"]  = famis_df.copy()
+    st.session_state["famis_data"]      = famis_df
+    st.session_state["famis_file_name"] = filename
+    try:
+        upsert_famis_upload(famis_df)
+    except Exception:
+        pass
+
+
 def render():
     """Render the Station Health Monitor content (called from station_planner.py tab)."""
+
+    # ── Auto-load from inbox (runs once per session) ──────────────────────────
+    if not st.session_state.get("_famis_inbox_checked"):
+        st.session_state["_famis_inbox_checked"] = True
+        try:
+            from aero.data.inbox_loader import scan_famis_inbox
+            inbox_files = scan_famis_inbox(auto_move=False)
+            if inbox_files and st.session_state.get("famis_data") is None:
+                newest = inbox_files[0]
+                _load_famis_df(newest["path"], newest["filename"])
+                n_rows = len(newest["df"])
+                st.toast(f"📂 Auto-loaded FAMIS: {newest['filename']} "
+                         f"({n_rows:,} station-week rows from inbox)", icon="✅")
+        except Exception:
+            pass  # non-blocking
+
+    # ── Restore from persisted Excel store if still no data ───────────────────
+    if st.session_state.get("famis_data") is None:
+        try:
+            stored = read_famis_uploads()
+            if stored is not None and not stored.empty:
+                st.session_state["famis_data_raw"] = stored.copy()
+                st.session_state["famis_data"]     = stored
+        except Exception:
+            pass
 
     upload_col1, upload_col2 = st.columns(2)
 
@@ -111,47 +151,16 @@ def render():
             "Upload Facility Volume Excel File",
             type=["xlsx"],
             key="famis_upload",
-            help="Upload the Facility Volume data file"
+            help="Upload FAMIS REPORT xlsx — or drop it in aero/data/inbox/famis/ to skip this step."
         )
 
         if famis_file:
             try:
-                famis_df = pd.read_excel(famis_file)
-                # Normalize column names: strip, lowercase, replace spaces and special chars
-                famis_df.columns = (
-                    famis_df.columns
-                    .str.strip()
-                    .str.lower()
-                    .str.replace(" ", "_")
-                    .str.replace("/", "_")
-                )
-
-                # Validate: only allow specified columns
-                valid_cols = list(FAMIS_ALLOWED_HEADERS.keys())
-                available_cols = [col for col in valid_cols if col in famis_df.columns]
-                invalid_cols = [col for col in famis_df.columns if col not in valid_cols]
-
-                # Minimum required columns: date, loc_id, pk_gross_tot
-                REQUIRED_COLS = ['date', 'loc_id', 'pk_gross_tot']
-                has_required = all(col in famis_df.columns for col in REQUIRED_COLS)
-
-                if has_required:
-                    famis_df['date'] = pd.to_datetime(famis_df['date']).dt.normalize()
-                    # Keep only allowed columns
-                    famis_df = famis_df[[col for col in famis_df.columns if col in valid_cols]]
-                    st.session_state['famis_data_raw'] = famis_df.copy()
-                    st.session_state['famis_data'] = famis_df
-                    # Persist to FAMIS UPLOADED DATA Excel
-                    try:
-                        n = upsert_famis_upload(famis_df)
-                        st.session_state['famis_file_name'] = famis_file.name
-                    except Exception:
-                        pass  # non-blocking
-                else:
-                    missing = set(REQUIRED_COLS) - set(available_cols)
-                    st.error(f" Missing required columns: {', '.join(missing)}")
+                _load_famis_df(famis_file.read(), famis_file.name)
+                st.success(f"✅ Loaded {len(st.session_state['famis_data']):,} "
+                           f"station-week rows from {famis_file.name}")
             except Exception as e:
-                st.error(f" Error loading FAMIS file: {str(e)}")
+                st.error(f"❌ Could not parse FAMIS file: {e}")
 
     with upload_col2:
         master_file = st.file_uploader(

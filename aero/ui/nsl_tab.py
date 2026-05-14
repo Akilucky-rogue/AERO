@@ -480,6 +480,51 @@ def render_nsl_tab() -> None:
         st.session_state["nsl_file_id"]  = file_id
         st.rerun()
 
+    # ── Inbox auto-load (NSL + Scorecard) — runs once per session ────────────
+    if not st.session_state.get("_nsl_inbox_checked"):
+        st.session_state["_nsl_inbox_checked"] = True
+        try:
+            from aero.data.inbox_loader import (
+                scan_nsl_inbox, mark_nsl_processed,
+                scan_scorecard_inbox, mark_scorecard_processed,
+            )
+            # NSL: load all files in inbox/nsl/ and combine
+            nsl_inbox = scan_nsl_inbox()
+            if nsl_inbox and st.session_state.get("nsl_df") is None:
+                combined_parts = []
+                for entry in nsl_inbox:
+                    try:
+                        part = _load_nsl(entry["bytes"])
+                        combined_parts.append(part)
+                        mark_nsl_processed(entry["path"])
+                    except Exception:
+                        pass
+                if combined_parts:
+                    import pandas as _pd2
+                    combined_nsl = _pd2.concat(combined_parts, ignore_index=True)
+                    if "shp_trk_nbr" in combined_nsl.columns:
+                        combined_nsl = combined_nsl.drop_duplicates("shp_trk_nbr")
+                    _save_cache(combined_nsl, "inbox (auto-loaded)")
+                    st.session_state["nsl_df"]       = combined_nsl
+                    st.session_state["nsl_filename"] = f"inbox — {len(nsl_inbox)} file(s)"
+                    st.session_state["nsl_file_id"]  = "inbox"
+                    st.toast(f"📂 Auto-loaded {len(combined_nsl):,} NSL rows from inbox", icon="✅")
+                    st.rerun()
+            # Scorecard: load most recent from inbox/scorecard/
+            if st.session_state.get("nsl_scorecard") is None:
+                sc_path, sc_bytes = scan_scorecard_inbox()
+                if sc_path and sc_bytes:
+                    try:
+                        sc_parsed = _parse_scorecard(sc_bytes)
+                        _save_scorecard(sc_parsed)
+                        st.session_state["nsl_scorecard"] = sc_parsed
+                        mark_scorecard_processed(sc_path)
+                        st.toast("📋 Scorecard auto-loaded from inbox", icon="✅")
+                    except Exception:
+                        pass
+        except Exception:
+            pass  # non-blocking
+
     # ── MD Scorecard uploader ────────────────────────────────────────────────
     with st.expander("📋  Upload MD Scorecard (optional — for ESP KPI cards)", expanded=False):
         sc_col1, sc_col2 = st.columns([3, 1])
@@ -1356,4 +1401,3 @@ def render_nsl_tab() -> None:
                     **_base_layout(margin=dict(l=16, r=80, t=60, b=60)),
                 )
                 st.plotly_chart(fig4, use_container_width=True)
- 
