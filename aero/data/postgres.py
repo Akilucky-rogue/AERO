@@ -210,11 +210,3 @@ def upsert_health_data(records: list, upload_id: int) -> int:
                     published_at = EXCLUDED.published_at;
             """, rows)
     return len(rows)
-ulated_agents = EXCLUDED.calculated_agents,
-                    resource_status = EXCLUDED.resource_status,
-                    calculated_couriers = EXCLUDED.calculated_couriers,
-                    courier_status = EXCLUDED.courier_status,
-                    published_at = EXCLUDED.published_at;
-            """, rows)
-    return len(rows)
-rows)

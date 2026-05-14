@@ -29,6 +29,18 @@ from aero.data.excel_store import (
     save_health_reports,
     read_report_sheet,
 )
+# PostgreSQL FAMIS store (DB-first; falls back to excel_store when DB unavailable)
+try:
+    from aero.data.famis_store import (  # type: ignore
+        db_available as _famis_db_available,
+        ensure_famis_tables as _ensure_famis_tables,
+        upsert_famis_data as _upsert_famis_db,
+        load_famis_from_db as _load_famis_db,
+        famis_row_count as _famis_row_count,
+    )
+    _FAMIS_STORE_OK = True
+except Exception:
+    _FAMIS_STORE_OK = False
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -111,7 +123,16 @@ def _load_famis_df(file_bytes_or_path, filename: str) -> None:
     st.session_state["famis_data"]      = famis_df
     st.session_state["famis_file_name"] = filename
     try:
-        upsert_famis_upload(famis_df)
+        # Upsert to PostgreSQL first; fall back to Excel store
+        if _FAMIS_STORE_OK:
+            try:
+                _ensure_famis_tables()
+                _upsert_famis_db(famis_df, filename)
+            except Exception as _dbe:
+                logger.warning("FAMIS DB upsert failed, falling back to Excel: %s", _dbe)
+                upsert_famis_upload(famis_df)
+        else:
+            upsert_famis_upload(famis_df)
     except Exception:
         pass
 
@@ -137,7 +158,16 @@ def render():
     # ── Restore from persisted Excel store if still no data ───────────────────
     if st.session_state.get("famis_data") is None:
         try:
-            stored = read_famis_uploads()
+            # Try PostgreSQL first
+            stored = None
+            if _FAMIS_STORE_OK:
+                try:
+                    if _famis_db_available() and _famis_row_count() > 0:
+                        stored = _load_famis_db()
+                except Exception:
+                    stored = None
+            if stored is None or stored.empty:
+                stored = read_famis_uploads()
             if stored is not None and not stored.empty:
                 st.session_state["famis_data_raw"] = stored.copy()
                 st.session_state["famis_data"]     = stored

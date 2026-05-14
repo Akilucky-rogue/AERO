@@ -166,18 +166,32 @@ def scan_famis_inbox(auto_move: bool = False) -> list:
     """
     Return list of dicts: {path, filename, df} for each valid FAMIS file in inbox.
     If auto_move=True, moves processed files to processed/famis/.
+    On each successful parse, upserts to PostgreSQL (falls back silently if DB unavailable).
     """
     ensure_inbox_dirs()
     results = []
-    for path in _list_inbox("famis", ".xlsx", ".xls"):
+    for fpath in _list_inbox("famis", ".xlsx", ".xls"):
         try:
-            df = parse_famis_file(path)
-            entry = {"path": path, "filename": os.path.basename(path), "df": df}
+            df = parse_famis_file(fpath)
+            fname = os.path.basename(fpath)
+            entry = {"path": fpath, "filename": fname, "df": df}
             results.append(entry)
+            # Persist to PostgreSQL
+            try:
+                from aero.data.famis_store import (  # type: ignore
+                    ensure_famis_tables, upsert_famis_data, db_available,
+                )
+                if db_available():
+                    ensure_famis_tables()
+                    meta = upsert_famis_data(df, fname)
+                    logger.info("FAMIS inbox: upserted %d rows to DB (%s)",
+                                meta["rows_upserted"], fname)
+            except Exception as db_err:
+                logger.warning("FAMIS inbox: DB upsert skipped (%s): %s", fname, db_err)
             if auto_move:
-                _move_processed(path, "famis")
+                _move_processed(fpath, "famis")
         except Exception as e:
-            logger.warning("FAMIS inbox: could not parse %s: %s", path, e)
+            logger.warning("FAMIS inbox: could not parse %s: %s", fpath, e)
     return results
 
 

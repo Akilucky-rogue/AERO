@@ -22,7 +22,7 @@ from datetime import datetime
 
 import pandas as pd
 
-from aero import DATA_DIR
+from aero import DATA_DIR, PROJECT_ROOT
 
 logger = logging.getLogger(__name__)
 
@@ -52,11 +52,15 @@ def _sanitize_df(df: pd.DataFrame) -> pd.DataFrame:
 def _safe_path(excel_path: str) -> str:
     """Normalise and validate *excel_path* to prevent path traversal.
 
-    Raises ValueError if the resolved path lies outside DATA_DIR.
+    Raises ValueError if the resolved path lies outside DATA_DIR or PROJECT_ROOT.
+    Trusted roots: the data/ subdirectory and the project root (for master workbooks).
     """
     resolved = os.path.normpath(os.path.abspath(excel_path))
-    data_root = os.path.normpath(os.path.abspath(DATA_DIR))
-    if not resolved.startswith(data_root + os.sep) and resolved != data_root:
+    data_root    = os.path.normpath(os.path.abspath(DATA_DIR))
+    project_root = os.path.normpath(os.path.abspath(PROJECT_ROOT))
+    in_data    = resolved.startswith(data_root + os.sep) or resolved == data_root
+    in_project = resolved.startswith(project_root + os.sep) or resolved == project_root
+    if not (in_data or in_project):
         raise ValueError(
             f"Attempted path traversal detected: {excel_path!r} resolves "
             f"outside the data directory ({data_root})."

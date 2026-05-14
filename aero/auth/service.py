@@ -164,7 +164,7 @@ def upsert_user(
         if os.path.exists(USERS_DB_PATH):
             df = pd.read_excel(USERS_DB_PATH, sheet_name="Users")
             # Ensure proper data types on read
-            df = df.astype(str).applymap(lambda x: x.strip() if isinstance(x, str) else x)
+            df = df.astype(str).map(lambda x: x.strip() if isinstance(x, str) else x)
         else:
             df = pd.DataFrame(
                 columns=["user_id", "display_name", "role", "password_hash", "is_active"]

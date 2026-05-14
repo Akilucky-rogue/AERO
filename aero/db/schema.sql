@@ -142,3 +142,35 @@ CREATE INDEX IF NOT EXISTS idx_nsl_customer   ON nsl_shipments(shpr_co_nm);
 CREATE INDEX IF NOT EXISTS idx_nsl_service    ON nsl_shipments(service);
 CREATE INDEX IF NOT EXISTS idx_nsl_bucket     ON nsl_shipments(bucket);
 CREATE INDEX IF NOT EXISTS idx_nsl_week       ON nsl_shipments(weekending_dt);
+
+-- ==============================
+-- FAMIS VOLUME DATA
+-- ==============================
+
+CREATE TABLE IF NOT EXISTS famis_data (
+    loc_id          VARCHAR(20)  NOT NULL,
+    report_date     DATE         NOT NULL,
+    pk_gross_tot    NUMERIC      DEFAULT 0  NOT NULL,
+    pk_gross_inb    NUMERIC,
+    pk_gross_outb   NUMERIC,
+    pk_oda          NUMERIC,
+    pk_opa          NUMERIC,
+    pk_roc          NUMERIC,
+    fte_tot         NUMERIC,
+    st_cr_or        NUMERIC,
+    pk_fte          NUMERIC,
+    pk_cr_or        NUMERIC,
+    uploaded_at     TIMESTAMP    DEFAULT NOW(),
+    PRIMARY KEY (loc_id, report_date)
+);
+
+CREATE TABLE IF NOT EXISTS famis_upload_log (
+    id              SERIAL        PRIMARY KEY,
+    filename        VARCHAR(255)  NOT NULL,
+    rows_upserted   INTEGER       NOT NULL DEFAULT 0,
+    total_rows_db   INTEGER       NOT NULL DEFAULT 0,
+    uploaded_at     TIMESTAMP     NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_famis_date  ON famis_data(report_date);
+CREATE INDEX IF NOT EXISTS idx_famis_loc   ON famis_data(loc_id);
