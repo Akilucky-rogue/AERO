@@ -1444,4 +1444,19 @@ def render():
         # Main highlight card - Final Agents Required
         st.markdown(f"""
         <div style="
-           
+            background: linear-gradient(135deg, #4D148C 0%, #671CAA 100%);
+            border-radius: 16px;
+            padding: 1.5rem 2rem;
+            margin: 1rem 0;
+            box-shadow: 0 6px 20px rgba(77,20,140,0.3);
+            text-align: center;
+        ">
+            <div style="color: rgba(255,255,255,0.9); font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px;">
+                Final OSA's Required
+            </div>
+                <div style="color: #FF6200; font-size: 48px; font-weight: 800; font-family: 'DM Sans', sans-serif;">
+                    {math.ceil(final_agents_total)}
+                </div>
+        </div>
+        """, unsafe_allow_html=True)
+
