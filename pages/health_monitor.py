@@ -2424,8 +2424,17 @@ def render():
                 from aero.data.postgres import (
                     ensure_tables,
                     insert_upload_record,
-                    upsert_health_data
+                    upsert_health_data,
+                    _POSTGRES_AVAILABLE,
                 )
+                if not _POSTGRES_AVAILABLE:
+                    st.warning(
+                        "⚙️ **PostgreSQL not configured.** "
+                        "Set POSTGRES_PASSWORD in your .env file and create the "
+                        "`aero_planner` database, then restart the app.",
+                        icon="🗄️",
+                    )
+                    st.stop()
 
                 famis_df = st.session_state['famis_data']
 

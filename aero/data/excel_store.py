@@ -64,8 +64,13 @@ def _atomic_write(path: str, sheets: dict[str, pd.DataFrame]) -> None:
 
     Guarantees that a crash mid-write never corrupts the existing file —
     the target is only replaced once the new file is fully flushed.
+    The temp file retains the original extension so pandas/openpyxl can
+    infer the file format correctly (pandas 2.x requires a recognised
+    extension when using ExcelWriter).
     """
-    tmp = path + ".tmp"
+    base, ext = os.path.splitext(path)
+    ext = ext or ".xlsx"
+    tmp = base + ".tmp" + ext   # e.g. FAMIS_UPLOADED_FILES.tmp.xlsx
     try:
         with pd.ExcelWriter(tmp, engine="openpyxl", mode="w") as writer:
             for sheet_name, df in sheets.items():
