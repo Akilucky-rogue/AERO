@@ -242,7 +242,7 @@ def authenticate(user_id: str, password: str) -> dict | None:
         return None
 
     # Ensure all columns are strings and stripped of whitespace
-    df = df.astype(str).applymap(lambda x: x.strip() if isinstance(x, str) else x)
+    df = df.astype(str).map(lambda x: x.strip() if isinstance(x, str) else x)
     
     # Case-insensitive user lookup
     user_id_clean = user_id.strip().lower()

@@ -795,7 +795,7 @@ def render():
                     legend=dict(orientation='h', yanchor='bottom', y=1.02, xanchor='center', x=0.5),
                     xaxis_title=an_tf.title() + ' Period', yaxis_title='Packages',
                     font=dict(family='FedExSansArabic, DM Sans, Inter, sans-serif', size=12))
-                st.plotly_chart(fig_vol, use_container_width=True)
+                st.plotly_chart(fig_vol, width="stretch")
 
                 # Chart 2: Per-hub status breakdown
                 st.markdown("---")
@@ -840,7 +840,7 @@ def render():
                                     margin=dict(l=40, r=20, t=40, b=60),
                                     xaxis_title='Hub (LOC ID)', yaxis_title='Avg Deviation %',
                                     font=dict(family='FedExSansArabic, DM Sans, Inter, sans-serif', size=12))
-                                st.plotly_chart(fig_bar, use_container_width=True)
+                                st.plotly_chart(fig_bar, width="stretch")
 
                 # Chart 3: Status distribution pie
                 st.markdown("---")
@@ -879,7 +879,7 @@ def render():
                                 margin=dict(l=10, r=10, t=40, b=10),
                                 font=dict(family='FedExSansArabic, DM Sans, Inter, sans-serif', size=11),
                                 showlegend=False)
-                            st.plotly_chart(fig_pie, use_container_width=True)
+                            st.plotly_chart(fig_pie, width="stretch")
                         else:
                             st.info(f"No {_title.lower()} report data yet. Publish a report first.")
         else:

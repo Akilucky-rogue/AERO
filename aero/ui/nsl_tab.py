@@ -922,7 +922,7 @@ def render_nsl_tab() -> None:
                     xaxis=dict(title="", gridcolor="#F0F0F0"),
                     **_base_layout(margin=dict(l=16, r=60, t=40, b=16)),
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
         # ── Weekly NSL% by Service — multi-line ───────────────────────────
         if "weekending_dt" in df.columns and not df["weekending_dt"].isna().all():
@@ -949,7 +949,7 @@ def render_nsl_tab() -> None:
                 xaxis=dict(title="", gridcolor="#F0F0F0"),
                 **_base_layout(),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         # ── Heatmap: Week × Destination Region NSL% ───────────────────────
         if "weekending_dt" in df.columns and "dest_region" in df.columns:
@@ -983,7 +983,7 @@ def render_nsl_tab() -> None:
                 yaxis=dict(title=""),
                 **_base_layout(margin=dict(l=120, r=16, t=40, b=80)),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     # ══════════════════════════════════════════════════════════════════════════
     # GEOGRAPHY
@@ -1015,7 +1015,7 @@ def render_nsl_tab() -> None:
                     yaxis=dict(title=""),
                     **_base_layout(margin=dict(l=8, r=100, t=40, b=16)),
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
         with col_b:
             if "dest_market_cd" in df.columns:
@@ -1031,7 +1031,7 @@ def render_nsl_tab() -> None:
                 st.markdown('<div style="font-size:13px;font-weight:700;color:#333;'
                             'margin-bottom:8px;">Top 15 Dest Markets by Volume</div>',
                             unsafe_allow_html=True)
-                st.dataframe(disp, use_container_width=True, hide_index=True, height=420)
+                st.dataframe(disp, width="stretch", hide_index=True, height=420)
 
         # ── Heatmap: Origin Region × Destination Region NSL% ─────────────
         if "orig_region" in df.columns and "dest_region" in df.columns:
@@ -1060,7 +1060,7 @@ def render_nsl_tab() -> None:
                 yaxis=dict(title="Origin Region"),
                 **_base_layout(margin=dict(l=120, r=16, t=40, b=100)),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     # ══════════════════════════════════════════════════════════════════════════
     # FAILURE ANALYSIS
@@ -1103,7 +1103,7 @@ def render_nsl_tab() -> None:
                         bargap=0.25,
                         **_base_layout(margin=dict(l=16, r=16, t=40, b=40)),
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch")
 
             # ── Donut: Failure ownership ──────────────────────────────────
             with col_d:
@@ -1119,7 +1119,7 @@ def render_nsl_tab() -> None:
                 ))
                 fig.update_layout(title="Failure Ownership Share", showlegend=False,
                                   **_base_layout(margin=dict(l=8, r=8, t=40, b=8)))
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
             # ── Heatmap: Bucket × Week failure volume ─────────────────────
             if "weekending_dt" in df.columns:
@@ -1149,7 +1149,7 @@ def render_nsl_tab() -> None:
                     yaxis=dict(title=""),
                     **_base_layout(margin=dict(l=160, r=16, t=40, b=80)),
                 )
-                st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, width="stretch")
 
             # ── Drill-down: select bucket → view AWBs ─────────────────────
             st.markdown("---")
@@ -1197,7 +1197,7 @@ def render_nsl_tab() -> None:
                                         ).round(1).astype(str) + "%"
                 pof["Failed Shipments"] = pof["Failed Shipments"].apply(lambda x: f"{int(x):,}")
                 st.dataframe(pof[["POF Cause", "Failed Shipments", "% of Failures"]],
-                             use_container_width=True, hide_index=True)
+                             width="stretch", hide_index=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # CUSTOMERS
@@ -1241,7 +1241,7 @@ def render_nsl_tab() -> None:
                            range=[0, 110], gridcolor="#F0F0F0"),
                 **_base_layout(margin=dict(l=16, r=80, t=40, b=16)),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
             # ── Bar chart: top customers by NSL% ─────────────────────────
             ct_sorted = ct.sort_values("NSL OT %")
@@ -1264,13 +1264,13 @@ def render_nsl_tab() -> None:
                 height=max(300, top_n * 22),
                 **_base_layout(margin=dict(l=160, r=80, t=40, b=16)),
             )
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, width="stretch")
 
             disp = ct[["shpr_co_nm", "vol", "NSL OT %"]].copy()
             disp.columns = ["Customer", "Volume", "NSL OT %"]
             disp["Volume"]   = disp["Volume"].apply(lambda x: f"{int(x):,}")
             disp["NSL OT %"] = disp["NSL OT %"].apply(lambda x: f"{x:.1f}%")
-            st.dataframe(disp, use_container_width=True, hide_index=True)
+            st.dataframe(disp, width="stretch", hide_index=True)
             buf = io.StringIO()
             cg.to_csv(buf, index=False)
             st.download_button("⬇️  Download Full Customer Table (CSV)",
@@ -1306,7 +1306,7 @@ def render_nsl_tab() -> None:
                         xaxis=dict(title=""),
                         **_base_layout(margin=dict(l=16, r=16, t=40, b=60)),
                     )
-                    st.plotly_chart(fig, use_container_width=True)
+                    st.plotly_chart(fig, width="stretch")
 
             if "pux_event_cd" in df.columns:
                 with sc2:
@@ -1326,7 +1326,7 @@ def render_nsl_tab() -> None:
                         yaxis=dict(title=""),
                         **_base_layout(margin=dict(l=120, r=60, t=40, b=16)),
                     )
-                    st.plotly_chart(fig2, use_container_width=True)
+                    st.plotly_chart(fig2, width="stretch")
 
             if "loc_id" in df.columns and "scan_label" in df.columns:
                 st.markdown("---")
@@ -1359,7 +1359,7 @@ def render_nsl_tab() -> None:
                     height=600,
                     **_base_layout(margin=dict(l=80, r=80, t=40, b=16)),
                 )
-                st.plotly_chart(fig3, use_container_width=True)
+                st.plotly_chart(fig3, width="stretch")
 
             if "weekending_dt" in df.columns and "scan_label" in df.columns:
                 wk_scan = df.groupby("weekending_dt").agg(
@@ -1400,4 +1400,4 @@ def render_nsl_tab() -> None:
 
                     **_base_layout(margin=dict(l=16, r=80, t=60, b=60)),
                 )
-                st.plotly_chart(fig4, use_container_width=True)
+                st.plotly_chart(fig4, width="stretch")

@@ -309,7 +309,7 @@ for idx, (domain, h, r, c, label) in enumerate([
             showlegend=False, yaxis=dict(visible=False),
             xaxis=dict(tickfont=dict(size=11)),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
 # ════════════════════════════════════════════════════════════════════════════
 # SECTION 2 — Station Status Grid
@@ -415,7 +415,7 @@ if drill_station and drill_station != "— Select Station —":
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                 margin=dict(l=40, r=20, t=40, b=40),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         with drill_tab2:
             fig2 = go.Figure()
@@ -446,7 +446,7 @@ if drill_station and drill_station != "— Select Station —":
                 paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                 margin=dict(l=40, r=60, t=40, b=40), legend=dict(x=0, y=1.1, orientation="h"),
             )
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(fig2, width="stretch")
 
         with drill_tab3:
             tc1, tc2 = st.columns(2)
@@ -464,7 +464,7 @@ if drill_station and drill_station != "— Select Station —":
                 fig3.update_layout(title="Agent Requirement", height=280,
                                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                                    margin=dict(l=40, r=20, t=40, b=40))
-                st.plotly_chart(fig3, use_container_width=True)
+                st.plotly_chart(fig3, width="stretch")
             with tc2:
                 fig4 = go.Figure()
                 if "calc_couriers" in st_history.columns:
@@ -479,7 +479,7 @@ if drill_station and drill_station != "— Select Station —":
                 fig4.update_layout(title="Courier Requirement", height=280,
                                    paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                                    margin=dict(l=40, r=20, t=40, b=40))
-                st.plotly_chart(fig4, use_container_width=True)
+                st.plotly_chart(fig4, width="stretch")
 
             # Status summary table
             if not st_history.empty:
@@ -490,7 +490,7 @@ if drill_station and drill_station != "— Select Station —":
                     "date":"Date","pk_gross_tot":"Volume",
                     "area_status":"Area","resource_status":"Resource","courier_status":"Courier"
                 })
-                st.dataframe(tbl, use_container_width=True, hide_index=True)
+                st.dataframe(tbl, width="stretch", hide_index=True)
 
 # ════════════════════════════════════════════════════════════════════════════
 # SECTION 4 — Volume Trend across all stations (last 30 days)
@@ -523,6 +523,6 @@ if not trend_df.empty:
         paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
         margin=dict(l=40, r=20, t=40, b=40),
     )
-    st.plotly_chart(fig5, use_container_width=True)
+    st.plotly_chart(fig5, width="stretch")
 
 render_footer("ANALYTICS")

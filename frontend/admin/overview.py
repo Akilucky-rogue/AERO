@@ -197,7 +197,7 @@ else:
             margin=dict(l=40, r=20, t=50, b=40),
             legend=dict(orientation="h", x=0, y=1.15),
         )
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     # Station volume table (latest date, read-only)
     st.markdown("**Station Volume Summary — Latest Date**")
@@ -208,7 +208,7 @@ else:
         "loc_id": "Station", "region": "Region", "pk_gross_tot": "Total Vol",
         "pk_gross_inb": "Inbound", "pk_gross_outb": "Outbound", "fte_tot": "FTE",
     })
-    st.dataframe(tbl, use_container_width=True, hide_index=True)
+    st.dataframe(tbl, width="stretch", hide_index=True)
 
 st.markdown("<br>", unsafe_allow_html=True)
 
@@ -261,7 +261,7 @@ try:
     if users_df.empty:
         st.info("No users found.")
     else:
-        st.dataframe(users_df, use_container_width=True, hide_index=True)
+        st.dataframe(users_df, width="stretch", hide_index=True)
 except Exception as e:
     st.info(f"User data unavailable: {e}")
 

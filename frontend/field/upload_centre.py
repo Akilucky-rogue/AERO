@@ -306,7 +306,7 @@ if _db_live:
                 "filename": "File", "rows_upserted": "Rows Upserted",
                 "total_rows_db": "Total in DB", "uploaded_at": "Uploaded At",
             })
-            st.dataframe(log_df, use_container_width=True, hide_index=True)
+            st.dataframe(log_df, width="stretch", hide_index=True)
         else:
             st.info("No upload history yet.")
     except Exception:

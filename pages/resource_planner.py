@@ -1359,7 +1359,7 @@ def render():
         })
 
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-        st.dataframe(sharp_df, hide_index=True, use_container_width=True)
+        st.dataframe(sharp_df, hide_index=True, width="stretch")
 
         # Final Agent Requirement
         # Use model-adjusted agent totals (osa/lasa/dispatcher already multiplied above)

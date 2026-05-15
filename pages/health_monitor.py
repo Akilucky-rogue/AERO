@@ -629,7 +629,7 @@ def render():
                 st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
                 st.dataframe(
                     summary_df,
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     column_config={
                         'DATE':            st.column_config.TextColumn('DATE', width=110),
@@ -801,7 +801,7 @@ def render():
 
                 st.dataframe(
                     resource_summary_df,
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     column_config={
                         'DATE':              st.column_config.TextColumn('DATE', width=110),
@@ -1332,7 +1332,7 @@ def render():
                 # Display table
                 st.dataframe(
                     courier_summary_df,
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     column_config={
                         'DATE': st.column_config.TextColumn('DATE', width=80),
@@ -2054,7 +2054,7 @@ def render():
                     xaxis_title=an_timeframe.title() + ' Period', yaxis_title='Packages',
                     font=dict(family='DM Sans, Inter, sans-serif', size=12)
                 )
-                st.plotly_chart(fig_vol, use_container_width=True)
+                st.plotly_chart(fig_vol, width="stretch")
 
                 # --- Adjust Y-axis to an "assumed" zoomed range to better show trend variations
                 try:
@@ -2165,7 +2165,7 @@ def render():
                                     yaxis=dict(tickfont=dict(size=13, color='#222222', family='DM Sans, Inter, sans-serif')),
                                     font=dict(family='DM Sans, Inter, sans-serif', size=12)
                                 )
-                                st.plotly_chart(fig_best, use_container_width=True)
+                                st.plotly_chart(fig_best, width="stretch")
 
                             with rank_col2:
                                 st.markdown(
@@ -2190,7 +2190,7 @@ def render():
                                     yaxis=dict(tickfont=dict(size=13, color='#222222', family='DM Sans, Inter, sans-serif')),
                                     font=dict(family='DM Sans, Inter, sans-serif', size=12)
                                 )
-                                st.plotly_chart(fig_worst, use_container_width=True)
+                                st.plotly_chart(fig_worst, width="stretch")
 
                 # ==========================================================
                 # CHART 3 — Courier Productivity Trends (ST/H, PK/ST, PK/FTE)
@@ -2317,7 +2317,7 @@ def render():
                             yaxis_title='Metric Value',
                             font=dict(family='DM Sans, Inter, sans-serif', size=12)
                         )
-                        st.plotly_chart(fig_prod, use_container_width=True)
+                        st.plotly_chart(fig_prod, width="stretch")
 
                         # --- Apply an "assumed" Y-axis zoom for selected productivity metrics
                         try:

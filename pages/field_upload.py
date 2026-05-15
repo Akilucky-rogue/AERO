@@ -303,7 +303,7 @@ if _db_live:
                 "filename": "File", "rows_upserted": "Rows",
                 "total_rows_db": "Total in DB", "uploaded_at": "Uploaded At"
             })
-            st.dataframe(log_df, use_container_width=True, hide_index=True)
+            st.dataframe(log_df, width="stretch", hide_index=True)
         else:
             st.info("No upload history yet.")
     except Exception:
@@ -318,7 +318,7 @@ else:
                 .size().reset_index(name="Rows") if "uploaded_at" in hist_df.columns
                 else pd.DataFrame({"Info": [f"{len(hist_df):,} total FAMIS rows in local store"]})
             )
-            st.dataframe(summary, use_container_width=True, hide_index=True)
+            st.dataframe(summary, width="stretch", hide_index=True)
         else:
             st.info("No previous uploads found in local store.")
     except Exception:

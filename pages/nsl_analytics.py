@@ -341,7 +341,7 @@ with tab_trend:
             xaxis=dict(title="", gridcolor="#F0F0F0"),
             **_base_layout(),
         )
-        st.plotly_chart(fig_line, use_container_width=True)
+        st.plotly_chart(fig_line, width="stretch")
 
         st.markdown("<br>", unsafe_allow_html=True)
 
@@ -369,7 +369,7 @@ with tab_trend:
                 xaxis=dict(title=""),
                 **_base_layout(),
             )
-            st.plotly_chart(fig_mbg, use_container_width=True)
+            st.plotly_chart(fig_mbg, width="stretch")
 
 
 # ────────────────────────────────────────────────────────────
@@ -412,7 +412,7 @@ with tab_geo:
                 yaxis=dict(title=""),
                 **_base_layout(margin=dict(l=8, r=80, t=36, b=16)),
             )
-            st.plotly_chart(fig_reg, use_container_width=True)
+            st.plotly_chart(fig_reg, width="stretch")
 
     with col_b:
         if "dest_market_cd" in df.columns:
@@ -437,7 +437,7 @@ with tab_geo:
             display_df.columns = ["Market", "Volume", "NSL OT %"]
             display_df["Volume"] = display_df["Volume"].apply(lambda x: f"{int(x):,}")
             display_df["NSL OT %"] = display_df["NSL OT %"].apply(lambda x: f"{x:.1f}%")
-            st.dataframe(display_df, use_container_width=True, hide_index=True,
+            st.dataframe(display_df, width="stretch", hide_index=True,
                          height=420)
 
 
@@ -480,7 +480,7 @@ with tab_fail:
                     xaxis=dict(title=""),
                     **_base_layout(),
                 )
-                st.plotly_chart(fig_fail, use_container_width=True)
+                st.plotly_chart(fig_fail, width="stretch")
 
         with col_d:
             # Donut: bucket share over full period
@@ -507,7 +507,7 @@ with tab_fail:
                 showlegend=False,
                 **_base_layout(margin=dict(l=8, r=8, t=36, b=8)),
             )
-            st.plotly_chart(fig_donut, use_container_width=True)
+            st.plotly_chart(fig_donut, width="stretch")
 
         # POF cause breakdown table
         if "pof_cause" in df.columns:
@@ -523,7 +523,7 @@ with tab_fail:
             if len(pof_tbl):
                 pof_tbl.columns = ["POF Cause", "Failed Shipments"]
                 pof_tbl["Failed Shipments"] = pof_tbl["Failed Shipments"].apply(lambda x: f"{int(x):,}")
-                st.dataframe(pof_tbl, use_container_width=True, hide_index=True)
+                st.dataframe(pof_tbl, width="stretch", hide_index=True)
 
 
 # ────────────────────────────────────────────────────────────
@@ -569,7 +569,7 @@ with tab_cust:
                        gridcolor="#F0F0F0"),
             **_base_layout(),
         )
-        st.plotly_chart(fig_cust, use_container_width=True)
+        st.plotly_chart(fig_cust, width="stretch")
 
         # Table
         display_cust = cust_top[["shpr_co_nm", "vol", "NSL OT %", "MBG OT %"]].copy()
@@ -577,7 +577,7 @@ with tab_cust:
         display_cust["Volume"] = display_cust["Volume"].apply(lambda x: f"{int(x):,}")
         display_cust["NSL OT %"] = display_cust["NSL OT %"].apply(lambda x: f"{x:.1f}%")
         display_cust["MBG OT %"] = display_cust["MBG OT %"].apply(lambda x: f"{x:.1f}%")
-        st.dataframe(display_cust, use_container_width=True, hide_index=True)
+        st.dataframe(display_cust, width="stretch", hide_index=True)
 
         # Download
         csv_buf = io.StringIO()
@@ -622,7 +622,7 @@ with tab_scan:
                 xaxis=dict(title=""),
                 **_base_layout(margin=dict(l=16, r=16, t=36, b=16)),
             )
-            st.plotly_chart(fig_scan, use_container_width=True)
+            st.plotly_chart(fig_scan, width="stretch")
 
         with sc2:
             # Scan compliance by stop type
@@ -659,7 +659,7 @@ with tab_scan:
                     xaxis=dict(title="Stop Type"),
                     **_base_layout(),
                 )
-                st.plotly_chart(fig_stop, use_container_width=True)
+                st.plotly_chart(fig_stop, width="stretch")
 
         # PUX exception code breakdown
         if "pkg_pckup_excp_typ_cd" in df.columns:
@@ -730,7 +730,7 @@ with tab_scan:
                     yaxis=dict(title="Shipments", gridcolor="#F0F0F0"),
                     **_base_layout(margin=dict(l=16, r=16, t=36, b=80)),
                 )
-                st.plotly_chart(fig_pux, use_container_width=True)
+                st.plotly_chart(fig_pux, width="stretch")
 
         # Weekly scan compliance trend
         if "weekending_dt" in df.columns and not df["weekending_dt"].isna().all():
@@ -769,6 +769,6 @@ with tab_scan:
                 xaxis=dict(title="", gridcolor="#F0F0F0"),
                 **_base_layout(),
             )
-            st.plotly_chart(fig_trend, use_container_width=True)
+            st.plotly_chart(fig_trend, width="stretch")
 
 render_footer("LEADERSHIP")
