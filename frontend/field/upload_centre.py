@@ -72,7 +72,7 @@ def _sync_session(df: pd.DataFrame, filename: str) -> None:
 
 def _process_famis(file_bytes: bytes, filename: str, file_type: str):
     """Parse → upsert DB → upsert Excel → sync session."""
-    df = parse_famis_file(io.BytesIO(file_bytes))
+    df = parse_famis_file(file_bytes)   # parse_famis_file wraps bytes in BytesIO internally
     df["file_type"] = file_type
 
     # Save local archive
@@ -359,7 +359,4 @@ with st.expander("⬇️  Download Data Templates", expanded=False):
         st.download_button(
             "⬇️ Master Template", buf2.getvalue(), "Master_Template.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True,
-        )
-
-render_footer("FIELD")
+            use_container_wid
