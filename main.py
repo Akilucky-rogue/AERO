@@ -122,71 +122,77 @@ with st.sidebar:
 
 if role == "Facility":
     # ── Field Engineer ────────────────────────────────────────
-    # Upload Centre → Station Planning (Area/Resource/Courier)
-    # → Station Analytics (with health + inline system config)
-    # Hub = Coming Soon placeholder
     pages = {
         "UPLOADS & DATA": [
             st.Page("frontend/field/upload_centre.py",
-                    title="Data Upload Centre", icon="📤", default=True),
+                    title="Data Upload Centre", icon="📤",
+                    url_path="upload-centre", default=True),
         ],
         "PLANNING TOOLS": [
             st.Page("frontend/field/planning_suite.py",
-                    title="Station Planning", icon="🏢"),
+                    title="Station Planning", icon="🏢",
+                    url_path="station-planning"),
             st.Page("frontend/field/hub_coming_soon.py",
-                    title="Hub Planning", icon="🏭"),
+                    title="Hub Planning", icon="🏭",
+                    url_path="hub-planning"),
         ],
         "ANALYTICS & CONFIG": [
             st.Page("frontend/field/analytics.py",
-                    title="Station Analytics", icon="📊"),
+                    title="Station Analytics", icon="📊",
+                    url_path="station-analytics"),
         ],
     }
 
 elif role == "Gateway":
-    # ── Gateway — UNTOUCHED, same as before ──────────────────
     pages = {
         "HOME": [
-            st.Page("pages/home.py", title="Home", icon="🏠", default=True),
+            st.Page("pages/home.py", title="Home", icon="🏠",
+                    url_path="home", default=True),
         ],
         "GATEWAY": [
             st.Page("frontend/gateway/operations.py",
-                    title="Gateway Operations", icon="✈️"),
+                    title="Gateway Operations", icon="✈️",
+                    url_path="gateway-operations"),
         ],
     }
 
 elif role == "Services":
-    # ── Services — UNTOUCHED, same as before ─────────────────
     pages = {
         "HOME": [
-            st.Page("pages/home.py", title="Home", icon="🏠", default=True),
+            st.Page("pages/home.py", title="Home", icon="🏠",
+                    url_path="home", default=True),
         ],
         "SERVICES": [
             st.Page("frontend/services/operations.py",
-                    title="Services Operations", icon="🛠️"),
+                    title="Services Operations", icon="🛠️",
+                    url_path="services-operations"),
         ],
     }
 
 elif role == "Leadership":
-    # ── Leadership ────────────────────────────────────────────
     pages = {
         "HOME": [
-            st.Page("pages/home.py", title="Home", icon="🏠", default=True),
+            st.Page("pages/home.py", title="Home", icon="🏠",
+                    url_path="home", default=True),
         ],
         "LEADERSHIP": [
             st.Page("frontend/leadership/dashboard.py",
-                    title="Executive Dashboard", icon="👔"),
+                    title="Executive Dashboard", icon="👔",
+                    url_path="executive-dashboard"),
         ],
     }
 
 elif role == "Operations":
-    # ── Admin / Operations — full visibility across all modules ───────────────
-    # Sees every page across all roles + the read-only Operations Overview.
+    # ── Admin / Operations — full visibility across ALL modules ──────────────
     pages = {
         "OVERVIEW": [
             st.Page("frontend/admin/overview.py",
-                    title="Operations Overview", icon="🏠", default=True),
+                    title="Operations Overview", icon="🏠",
+                    url_path="ops-overview", default=True),
         ],
         "FIELD OPERATIONS": [
             st.Page("frontend/field/upload_centre.py",
-                    title="Data Upload Centre", icon="📤"),
-            st.Page("frontend/field/planni
+                    title="Data Upload Centre", icon="📤",
+                    url_path="upload-centre"),
+            st.Page("frontend/field/planning_suite.py",
+                    title="Station Planning", icon=
