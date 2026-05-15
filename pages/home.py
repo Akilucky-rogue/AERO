@@ -1,16 +1,27 @@
+# ============================================================
+# AERO — Home Page (Role-Aware)
+# ============================================================
 import streamlit as st
 import pandas as pd
 import io
+
 from aero.ui.header import render_header, render_footer
 from aero.auth.service import get_current_user
+from aero.ui.components import (
+    render_module_card,
+    render_step_guide,
+    render_kpi_row,
+    render_info_banner,
+    _PURPLE, _ORANGE, _GREEN, _RED,
+)
 
-# ── Role detection ───────────────────────────────────────────────────────────
 _user = get_current_user()
-_role = (_user.get("role", "") if _user else "")
+_role = _user.get("role", "") if _user else ""
 
-# ============================================================
-# LEADERSHIP — dedicated overview page (no emojis)
-# ============================================================
+
+# ════════════════════════════════════════════════════════════
+# LEADERSHIP
+# ════════════════════════════════════════════════════════════
 if _role == "Leadership":
     render_header(
         "EXECUTIVE DASHBOARD",
@@ -19,320 +30,314 @@ if _role == "Leadership":
         badge="LEADERSHIP",
     )
 
-    st.markdown("""
-    <div style="background:linear-gradient(135deg,#FAFAFA 0%,#FFFFFF 100%);
-        border-left:5px solid #4D148C;border-radius:8px;padding:1.2rem 1.5rem;
-        margin-bottom:1.5rem;box-shadow:0 1px 4px rgba(0,0,0,0.07);">
-        <div style="font-weight:700;color:#1A1A1A;font-size:17px;
-            text-transform:uppercase;letter-spacing:0.3px;margin-bottom:6px;">
-            About the Executive Dashboard
-        </div>
-        <p style="color:#555;font-size:13px;line-height:1.7;margin:0;">
-            The Executive Dashboard provides a consolidated, read-only view of
-            operational health and performance analytics across all FedEx divisions.
-            Select a division tab in the <strong>Executive Dashboard</strong> page to
-            view its dedicated report. Each tab is fully independent — data from one
-            division does not affect another.
-        </p>
-    </div>""", unsafe_allow_html=True)
+    render_info_banner(
+        "About the Executive Dashboard",
+        "The Executive Dashboard provides a consolidated, read-only view of operational health "
+        "and performance analytics across all FedEx divisions. Select a division tab in the "
+        "<b>Executive Dashboard</b> page to view its dedicated report.",
+    )
 
-    # Division overview cards
-    st.markdown("""
-    <div style="font-weight:700;color:#333;font-size:13px;text-transform:uppercase;
-        letter-spacing:0.6px;margin-bottom:10px;">Division Overview</div>""",
-        unsafe_allow_html=True)
+    st.markdown(
+        '<div style="font-weight:700;color:#333;font-size:12px;text-transform:uppercase;'
+        'letter-spacing:0.6px;margin-bottom:10px;">Division Overview</div>',
+        unsafe_allow_html=True,
+    )
 
     c1, c2, c3 = st.columns(3)
-    with c1:
-        st.markdown("""
-        <div style="background:#FFFFFF;border:1px solid #E3E3E3;border-top:4px solid #4D148C;
-            border-radius:10px;padding:1.1rem 1.25rem;box-shadow:0 1px 4px rgba(0,0,0,0.07);min-height:160px;">
-            <div style="font-size:12px;font-weight:800;color:#4D148C;text-transform:uppercase;
-                letter-spacing:0.7px;margin-bottom:8px;border-bottom:1px solid #F0E8FF;
-                padding-bottom:6px;">Station / Hub</div>
-            <p style="font-size:12px;color:#555;line-height:1.65;margin:0;">
-                Displays health status reports published by Facility teams across
-                Stations and Hubs. Covers Area, Resource, and Courier monitoring
-                with breakdown by Healthy, Review, and Critical classifications.
-                Volume trend charts and critical-location tables are also available.
-            </p>
-        </div>""", unsafe_allow_html=True)
-    with c2:
-        st.markdown("""
-        <div style="background:#FFFFFF;border:1px solid #E3E3E3;border-top:4px solid #1A5276;
-            border-radius:10px;padding:1.1rem 1.25rem;box-shadow:0 1px 4px rgba(0,0,0,0.07);min-height:160px;">
-            <div style="font-size:12px;font-weight:800;color:#1A5276;text-transform:uppercase;
-                letter-spacing:0.7px;margin-bottom:8px;border-bottom:1px solid #E8F4FB;
-                padding-bottom:6px;">Gateway</div>
-            <p style="font-size:12px;color:#555;line-height:1.65;margin:0;">
-                Will present inter-hub linehaul and air gateway performance metrics
-                once Phase 2 integration is complete. Covers on-time departure,
-                linehaul utilization, gateway volume, cross-dock efficiency, and
-                route-level performance benchmarks.
-            </p>
-        </div>""", unsafe_allow_html=True)
-    with c3:
-        st.markdown("""
-        <div style="background:#FFFFFF;border:1px solid #E3E3E3;border-top:4px solid #7B241C;
-            border-radius:10px;padding:1.1rem 1.25rem;box-shadow:0 1px 4px rgba(0,0,0,0.07);min-height:160px;">
-            <div style="font-size:12px;font-weight:800;color:#7B241C;text-transform:uppercase;
-                letter-spacing:0.7px;margin-bottom:8px;border-bottom:1px solid #FDECEA;
-                padding-bottom:6px;">Services</div>
-            <p style="font-size:12px;color:#555;line-height:1.65;margin:0;">
-                Will present SLA compliance, customer contact volume,
-                and first-attempt delivery rates once Phase 2 integration is complete.
-                Covers service failure categorization and NPS integration
-                across all service types and station divisions.
-            </p>
-        </div>""", unsafe_allow_html=True)
+    render_module_card(c1, "🏢", "Station / Hub",
+        "Health status reports published by Facility teams covering Area, Resource, and Courier "
+        "monitoring with Healthy / Review / Critical classifications and volume trend charts.",
+        accent=_PURPLE)
+    render_module_card(c2, "✈️", "Gateway",
+        "Inter-hub linehaul and air gateway performance metrics. Covers on-time departure, "
+        "linehaul utilisation, cross-dock efficiency, and route-level benchmarks. (Phase 2)",
+        accent="#1A5276")
+    render_module_card(c3, "🛎️", "Services",
+        "SLA compliance, delay prediction, customer contact volume, and first-attempt delivery "
+        "rates across all service types and station divisions. (Phase 2 for dashboard view)",
+        accent="#7B241C")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Navigation guidance
-    st.markdown("""
-    <div style="background:linear-gradient(135deg,#FAFAFA 0%,#FFFFFF 100%);
-        border-left:5px solid #FF6200;border-radius:8px;padding:1.1rem 1.5rem;
-        box-shadow:0 1px 4px rgba(0,0,0,0.07);">
-        <div style="font-weight:700;color:#1A1A1A;font-size:13px;text-transform:uppercase;
-            letter-spacing:0.5px;margin-bottom:10px;">How to Navigate</div>
-        <table style="width:100%;border-collapse:collapse;font-size:12px;">
-            <tr style="border-bottom:1px solid #F0F0F0;">
-                <td style="padding:7px 10px;font-weight:700;color:#4D148C;
-                    width:32px;vertical-align:top;">1</td>
-                <td style="padding:7px 10px;font-weight:600;color:#333;
-                    width:190px;vertical-align:top;">Open Executive Dashboard</td>
-                <td style="padding:7px 10px;color:#555;">
-                    Select <strong>Executive Dashboard</strong> from the left navigation panel
-                    to open the main analytics page.</td>
-            </tr>
-            <tr style="border-bottom:1px solid #F0F0F0;">
-                <td style="padding:7px 10px;font-weight:700;color:#4D148C;vertical-align:top;">2</td>
-                <td style="padding:7px 10px;font-weight:600;color:#333;vertical-align:top;">Select Division Tab</td>
-                <td style="padding:7px 10px;color:#555;">
-                    Choose from <strong>STATION / HUB</strong>, <strong>GATEWAY</strong>, or
-                    <strong>SERVICES</strong> tabs at the top of the page. Each tab is
-                    independently scoped to its division.</td>
-            </tr>
-            <tr>
-                <td style="padding:7px 10px;font-weight:700;color:#4D148C;vertical-align:top;">3</td>
-                <td style="padding:7px 10px;font-weight:600;color:#333;vertical-align:top;">Review the Report</td>
-                <td style="padding:7px 10px;color:#555;">
-                    Station / Hub data populates automatically from published Facility health
-                    reports. Gateway and Services tabs will activate in Phase 2.</td>
-            </tr>
-        </table>
-    </div>""", unsafe_allow_html=True)
+    render_step_guide([
+        {"title": "Open Executive Dashboard",
+         "description": "Select <b>Executive Dashboard</b> from the left navigation panel."},
+        {"title": "Select Division Tab",
+         "description": "Choose from <b>STATION / HUB</b>, <b>GATEWAY</b>, or <b>SERVICES</b>. "
+                        "Each tab is independently scoped."},
+        {"title": "Review the Report",
+         "description": "Station / Hub data auto-populates from published Facility health reports. "
+                        "Gateway and Services tabs activate in Phase 2."},
+    ])
 
     render_footer("LEADERSHIP")
     st.stop()
 
-# ============================================================
-# ALL OTHER ROLES — standard home page
-# ============================================================
+
+# ════════════════════════════════════════════════════════════
+# SERVICES
+# ════════════════════════════════════════════════════════════
+if _role == "Services":
+    render_header(
+        "SERVICES OPERATIONS",
+        "Delay Prediction Engine | FedEx Planning & Engineering",
+        logo_height=80,
+        badge="SERVICES",
+    )
+
+    render_info_banner(
+        "Welcome to the Services Module",
+        "The Services module uses a <b>Bayesian delay prediction engine</b> trained on NSL "
+        "historical shipment data. Upload your NSL file to build the model, then score daily "
+        "AWB files to identify which packages are at risk of missing their SLA commit window.",
+        accent=_PURPLE,
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+    render_module_card(c1, "📥", "Training Data",
+        "Upload your IN SPAC NSL file (.txt / .csv / .xlsx) to parse and review historical "
+        "shipment performance before training.",
+        accent=_PURPLE)
+    render_module_card(c2, "🧠", "Model",
+        "View the trained network profile: fail rates by lane, hub, market, service type, "
+        "POF causes, and transit time distributions.",
+        accent="#1A5276")
+    render_module_card(c3, "🔮", "Daily Prediction",
+        "Upload today's AWB file to score every shipment. Results are colour-coded: "
+        "Critical / High Risk / At Risk / Passing with per-AWB drilldown.",
+        accent=_GREEN)
+    render_module_card(c4, "📋", "History",
+        "Browse and download all past prediction sessions stored as timestamped Excel sheets.",
+        accent=_ORANGE)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    render_step_guide([
+        {"title": "Prepare NSL File",
+         "description": "Export the <b>IN SPAC NSL</b> report as a tab-separated .txt file "
+                        "(or .csv / .xlsx). Required columns: "
+                        "<code>orig_loc_cd</code>, <code>dest_loc_cd</code>, <code>NSL_OT_VOL</code>."},
+        {"title": "Train the Model",
+         "description": "Go to <b>Services Operations → Training Data</b>, upload the NSL file, "
+                        "preview the parse stats, then click <b>Train Model</b>. "
+                        "The model persists across sessions — train once, predict daily."},
+        {"title": "Upload Daily AWB File",
+         "description": "Go to <b>Daily Prediction</b>, upload today's AWB extract "
+                        "(needs at least <code>orig_loc_cd</code> and <code>dest_loc_cd</code>), "
+                        "then click <b>Run Prediction</b>."},
+        {"title": "Review & Act",
+         "description": "Filter by risk level or market. Drilldown into individual AWBs for "
+                        "root-cause signals and recommended actions. Download results as CSV "
+                        "or save the session to History."},
+    ])
+
+    render_footer("SERVICES")
+    st.stop()
+
+
+# ════════════════════════════════════════════════════════════
+# GATEWAY
+# ════════════════════════════════════════════════════════════
+if _role == "Gateway":
+    render_header(
+        "GATEWAY OPERATIONS",
+        "Cross-dock & Hub Connectivity | FedEx Planning & Engineering",
+        logo_height=80,
+        badge="GATEWAY",
+    )
+
+    render_info_banner(
+        "Gateway Module — Phase 2",
+        "The Gateway module will provide inter-hub linehaul analytics, sort-plan adherence "
+        "tracking, cross-dock throughput monitoring, and volume balancing recommendations. "
+        "Full integration is planned for Phase 2.",
+        accent=_ORANGE,
+    )
+
+    c1, c2, c3 = st.columns(3)
+    render_module_card(c1, "📦", "Sort-Plan Adherence",
+        "Real-time sort accuracy and misroute tracking across gateway lanes. "
+        "Shift-over-shift comparison view.", accent=_PURPLE)
+    render_module_card(c2, "📊", "Throughput Analytics",
+        "Packages-per-hour dashboards with volume trend charts and exception flagging "
+        "by sort lane and gateway station.", accent="#1A5276")
+    render_module_card(c3, "🔄", "Volume Balancing",
+        "Inter-facility load redistribution recommendations powered by FAMIS data. "
+        "Identify over/under-utilised gateways at a glance.", accent=_GREEN)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="background:#FFFBEB;border-left:4px solid #FFB800;border-radius:8px;
+        padding:14px 18px;font-size:13px;color:#7C4F00;">
+        <b>Coming in Phase 2</b> — Gateway Operations is currently in development.
+        Navigate to <b>Gateway Operations</b> in the sidebar to see the module preview.
+    </div>""", unsafe_allow_html=True)
+
+    render_footer("GATEWAY")
+    st.stop()
+
+
+# ════════════════════════════════════════════════════════════
+# OPERATIONS (all-access role)
+# ════════════════════════════════════════════════════════════
+if _role == "Operations":
+    render_header(
+        "AERO — Operations Overview",
+        "All Modules | FedEx Planning & Engineering",
+        logo_height=80,
+        badge="OPERATIONS",
+    )
+
+    render_info_banner(
+        "Operations Role — Full Access",
+        "As an Operations user you have access to all AERO modules: Facility planning, "
+        "Hub planning, Gateway operations, Services delay prediction, and Leadership analytics. "
+        "Use the left sidebar to navigate between modules.",
+        accent=_PURPLE,
+    )
+
+    st.markdown(
+        '<div style="font-weight:700;color:#333;font-size:12px;text-transform:uppercase;'
+        'letter-spacing:0.6px;margin-bottom:12px;">Available Modules</div>',
+        unsafe_allow_html=True,
+    )
+
+    c1, c2, c3 = st.columns(3)
+    render_module_card(c1, "🏢", "Station Planner",
+        "Area, resource, and courier planning for individual station facilities. "
+        "Upload FAMIS data and calculate health status.", accent=_PURPLE)
+    render_module_card(c2, "🏭", "Hub Planner",
+        "Health monitoring and capacity planning for hub-level operations. "
+        "Mirrors Station Planner with hub-specific models.", accent=_PURPLE)
+    render_module_card(c3, "✈️", "Gateway Operations",
+        "Cross-dock throughput monitoring, sort-plan adherence, and volume balancing. "
+        "(Phase 2)", accent="#1A5276")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    c4, c5, c6 = st.columns(3)
+    render_module_card(c4, "🔮", "Services Operations",
+        "Bayesian delay prediction engine — train on NSL history, score daily AWB files, "
+        "identify at-risk shipments before they fail.", accent=_GREEN, gradient=True)
+    render_module_card(c5, "📊", "Analytics Overview",
+        "Cross-divisional executive analytics: Station/Hub health, Gateway metrics, "
+        "and Services SLA performance in one view.", accent=_ORANGE, gradient=True)
+    render_module_card(c6, "⚙️", "Admin Controls",
+        "Configure global thresholds, model parameters, and user settings that drive "
+        "all calculations across the application.", accent=_PURPLE)
+
+    render_footer("OPERATIONS")
+    st.stop()
+
+
+# ════════════════════════════════════════════════════════════
+# FACILITY / FIELD ENGINEER (default)
+# ════════════════════════════════════════════════════════════
 render_header(
-    "AERO - Automated Evaluation Of Resource Occupancy",
-    "FedEx Planning & Engineering | AREA, RESOURCE & COURIER PLANNING",
+    "FIELD OPERATIONS OVERVIEW",
+    "FedEx Planning & Engineering | Field Engineer Dashboard",
     logo_height=80,
+    badge="FIELD",
 )
 
-# ============================================================
-# PROCESS FLOW GUIDELINES
-# ============================================================
-st.markdown("""
-<div style="
-    background: linear-gradient(135deg, #FAFAFA 0%, #FFFFFF 100%);
-    border-left: 4px solid #4D148C;
-    border-radius: 8px;
-    padding: 1rem 1.25rem;
-    margin: 0 0 1.5rem 0;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-">
-    <h3 style="color: #333333; margin: 0; font-size: 18px; font-weight: 700; font-family:'DM Sans','Inter',sans-serif;">📋 How to Use AERO</h3>
-    <p style="color: #565656; font-size: 13px; margin: 4px 0 0 0; font-family:'Inter',sans-serif;">Follow the steps below to get started with facility planning and health monitoring</p>
-</div>
-""", unsafe_allow_html=True)
+# ── Quick-status banner from session ───────────────────────
+_famis  = st.session_state.get("famis_data")
+_master = st.session_state.get("master_data")
+_famis_ok  = _famis  is not None and not _famis.empty
+_master_ok = _master is not None and not _master.empty
 
-# Step-by-step guide
-st.markdown("""
-<div style="
-    background: #FFFFFF;
-    border: 1px solid #E3E3E3;
-    border-radius: 12px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    font-family:'Inter','DM Sans',sans-serif;
-">
-    <div style="font-size: 15px; font-weight: 700; color: #4D148C; margin-bottom: 12px;">🔄 Process Flow</div>
-    <table style="width:100%; border-collapse:collapse; font-size:13px;">
-        <tr style="border-bottom:1px solid #EEE;">
-            <td style="padding:8px 12px; font-weight:700; color:#4D148C; width:40px; vertical-align:top;">1</td>
-            <td style="padding:8px 12px; font-weight:600; color:#333; width:200px; vertical-align:top;">Prepare Data Files</td>
-            <td style="padding:8px 12px; color:#565656;">Download the Excel templates below and populate them with your FAMIS volume data and Facility Master data. Ensure <code>loc_id</code> and <code>date</code> columns are filled correctly.</td>
-        </tr>
-        <tr style="border-bottom:1px solid #EEE;">
-            <td style="padding:8px 12px; font-weight:700; color:#4D148C; vertical-align:top;">2</td>
-            <td style="padding:8px 12px; font-weight:600; color:#333; vertical-align:top;">Upload to Health Monitor</td>
-            <td style="padding:8px 12px; color:#565656;">Navigate to <b>Health Monitoring → Health Monitor</b>. Upload both the FAMIS file and the Facility Master file using the file uploaders at the top of the page.</td>
-        </tr>
-        <tr style="border-bottom:1px solid #EEE;">
-            <td style="padding:8px 12px; font-weight:700; color:#4D148C; vertical-align:top;">3</td>
-            <td style="padding:8px 12px; font-weight:600; color:#333; vertical-align:top;">Select File Type & Date</td>
-            <td style="padding:8px 12px; color:#565656;">Choose the FAMIS file type (Daily / Weekly / Monthly) for volume normalization. Then select the date to analyze from the dropdown.</td>
-        </tr>
-        <tr style="border-bottom:1px solid #EEE;">
-            <td style="padding:8px 12px; font-weight:700; color:#4D148C; vertical-align:top;">4</td>
-            <td style="padding:8px 12px; font-weight:600; color:#333; vertical-align:top;">Review Health Tabs</td>
-            <td style="padding:8px 12px; color:#565656;">Switch between <b>Area Monitor</b>, <b>Station Agent Monitor</b>, <b>Courier Monitor</b>, and <b>Analytics</b> tabs to review health status across all stations.</td>
-        </tr>
-        <tr style="border-bottom:1px solid #EEE;">
-            <td style="padding:8px 12px; font-weight:700; color:#4D148C; vertical-align:top;">5</td>
-            <td style="padding:8px 12px; font-weight:600; color:#333; vertical-align:top;">Publish Reports</td>
-            <td style="padding:8px 12px; color:#565656;">At the bottom of the Health Monitor page, use <b>Publish to Excel</b> to download reports or <b>Publish to Database</b> to store results in the central database.</td>
-        </tr>
-        <tr>
-            <td style="padding:8px 12px; font-weight:700; color:#4D148C; vertical-align:top;">6</td>
-            <td style="padding:8px 12px; font-weight:600; color:#333; vertical-align:top;">Individual Trackers</td>
-            <td style="padding:8px 12px; color:#565656;">Use the <b>Area Tracker</b>, <b>Resource Tracker</b>, and <b>Courier Tracker</b> pages for detailed single-station calculations. These auto-populate volumes from uploaded FAMIS data.</td>
-        </tr>
-    </table>
-</div>
-""", unsafe_allow_html=True)
-
-# ============================================================
-# MODULE OVERVIEW CARDS
-# ============================================================
-st.markdown("""
-<div style="
-    background: linear-gradient(135deg, #FAFAFA 0%, #FFFFFF 100%);
-    border-left: 4px solid #FF6200;
-    border-radius: 8px;
-    padding: 1rem 1.25rem;
-    margin: 1rem 0 1rem 0;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-">
-    <h3 style="color: #333333; margin: 0; font-size: 18px; font-weight: 700; font-family:'DM Sans','Inter',sans-serif;">📦 Modules</h3>
-</div>
-""", unsafe_allow_html=True)
-
-nav_col1, nav_col2, nav_col3 = st.columns(3)
-
-with nav_col1:
-    st.markdown("""
-    <div style="background:#FFF;border:1px solid #E3E3E3;border-radius:12px;padding:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.08);height:100%;">
-        <div style="font-size:22px;margin-bottom:0.5rem;">🏢</div>
-        <div style="font-size:15px;font-weight:700;color:#333;margin-bottom:0.35rem;font-family:'DM Sans',sans-serif;">Area Tracker</div>
-        <div style="font-size:12px;color:#565656;font-family:'Inter',sans-serif;">Calculate facility area requirements: sorting, equipment, caging & supplies based on volume and model type</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with nav_col2:
-    st.markdown("""
-    <div style="background:#FFF;border:1px solid #E3E3E3;border-radius:12px;padding:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.08);height:100%;">
-        <div style="font-size:22px;margin-bottom:0.5rem;">👥</div>
-        <div style="font-size:15px;font-weight:700;color:#333;margin-bottom:0.35rem;font-family:'DM Sans',sans-serif;">Resource Tracker</div>
-        <div style="font-size:12px;color:#565656;font-family:'Inter',sans-serif;">Calculate General OSA, LASA, Dispatcher & Trace Agent requirements for a station</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with nav_col3:
-    st.markdown("""
-    <div style="background:#FFF;border:1px solid #E3E3E3;border-radius:12px;padding:1.25rem;box-shadow:0 1px 3px rgba(0,0,0,0.08);height:100%;">
-        <div style="font-size:22px;margin-bottom:0.5rem;">🚚</div>
-        <div style="font-size:15px;font-weight:700;color:#333;margin-bottom:0.35rem;font-family:'DM Sans',sans-serif;">Courier Tracker</div>
-        <div style="font-size:12px;color:#565656;font-family:'Inter',sans-serif;">Compute courier headcount requirements based on stops, productivity and absenteeism</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-nav_col4, nav_col5 = st.columns(2)
-
-with nav_col4:
-    st.markdown("""
-    <div style="background:linear-gradient(135deg,#4D148C 0%,#671CAA 100%);border-radius:12px;padding:1.25rem;box-shadow:0 4px 12px rgba(77,20,140,0.25);height:100%;">
-        <div style="font-size:22px;margin-bottom:0.5rem;">📊</div>
-        <div style="font-size:15px;font-weight:700;color:#FFF;margin-bottom:0.35rem;font-family:'DM Sans',sans-serif;">Health Monitor</div>
-        <div style="font-size:12px;color:rgba(255,255,255,0.8);font-family:'Inter',sans-serif;">Upload FAMIS + Master data to analyze Area, Resource & Courier health across all stations. Publish results to Excel or the central database.</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-with nav_col5:
-    st.markdown("""
-    <div style="background:linear-gradient(135deg,#FF6200 0%,#FF8533 100%);border-radius:12px;padding:1.25rem;box-shadow:0 4px 12px rgba(255,98,0,0.25);height:100%;">
-        <div style="font-size:22px;margin-bottom:0.5rem;">⚙️</div>
-        <div style="font-size:15px;font-weight:700;color:#FFF;margin-bottom:0.35rem;font-family:'DM Sans',sans-serif;">User Controls</div>
-        <div style="font-size:12px;color:rgba(255,255,255,0.8);font-family:'Inter',sans-serif;">Configure global parameters, thresholds and model settings that drive all calculations across the application.</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# ============================================================
-# DOWNLOADABLE EXCEL TEMPLATES
-# ============================================================
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown("""
-<div style="
-    background: linear-gradient(135deg, #FAFAFA 0%, #FFFFFF 100%);
-    border-left: 4px solid #4D148C;
-    border-radius: 8px;
-    padding: 1rem 1.25rem;
-    margin: 0 0 1rem 0;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-">
-    <h3 style="color: #333333; margin: 0; font-size: 18px; font-weight: 700; font-family:'DM Sans','Inter',sans-serif;">📥 Download Excel Templates</h3>
-    <p style="color: #565656; font-size: 13px; margin: 4px 0 0 0; font-family:'Inter',sans-serif;">Use these templates to prepare your data for upload into the Health Monitor</p>
-</div>
-""", unsafe_allow_html=True)
-
-dl_col1, dl_col2 = st.columns(2)
-
-with dl_col1:
-    st.markdown("**FAMIS / Volume Data Template**")
-    st.caption("Columns: date, loc_id, pk_gross_tot, pk_gross_inb, pk_gross_outb, pk_oda, pk_opa, pk_roc, fte_tot, st_cr_or, st_h_or, pk_st_or, pk_fte, pk_cr_or")
-    famis_template = pd.DataFrame(columns=[
-        'date', 'loc_id', 'pk_gross_tot', 'pk_gross_inb', 'pk_gross_outb',
-        'pk_oda', 'pk_opa', 'pk_roc', 'fte_tot', 'st_cr_or', 'st_h_or',
-        'pk_st_or', 'pk_fte', 'pk_cr_or'
-    ])
-    # Add a sample row
-    famis_template.loc[0] = ['2025-01-01', 'ABCD', 1000, 600, 400, 50, 30, 200, 10, 2.0, 8.0, 1.5, 100, 2.5]
-
-    buf_famis = io.BytesIO()
-    with pd.ExcelWriter(buf_famis, engine='openpyxl') as writer:
-        famis_template.to_excel(writer, index=False, sheet_name='FAMIS')
-    buf_famis.seek(0)
-
-    st.download_button(
-        label="⬇️  Download FAMIS Template",
-        data=buf_famis.getvalue(),
-        file_name="FAMIS_Template.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
+if _famis_ok and _master_ok:
+    _n   = len(_famis)
+    _st  = _famis["loc_id"].nunique() if "loc_id" in _famis.columns else 0
+    _dt  = pd.to_datetime(_famis["date"]).max().strftime("%d %b %Y") if "date" in _famis.columns else "—"
+    render_info_banner(
+        "Data Ready",
+        f"<b>{_n:,}</b> FAMIS records across <b>{_st}</b> stations loaded "
+        f"(latest: <b>{_dt}</b>). Master data loaded. Use the navigation on the left to begin planning or view analytics.",
+        accent=_GREEN,
     )
-
-with dl_col2:
-    st.markdown("**Facility Master Data Template**")
-    st.caption("Columns: date, loc_id, total_facility_area, ops_area, current_total_osa, current_total_couriers")
-    master_template = pd.DataFrame(columns=[
-        'date', 'loc_id', 'total_facility_area', 'ops_area',
-        'current_total_osa', 'current_total_couriers'
-    ])
-    master_template.loc[0] = ['2025-01-01', 'ABCD', 50000, 35000, 25.0, 12]
-
-    buf_master = io.BytesIO()
-    with pd.ExcelWriter(buf_master, engine='openpyxl') as writer:
-        master_template.to_excel(writer, index=False, sheet_name='Master')
-    buf_master.seek(0)
-
-    st.download_button(
-        label="⬇️  Download Master Template",
-        data=buf_master.getvalue(),
-        file_name="Master_Template.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
+elif _famis_ok:
+    render_info_banner(
+        "FAMIS Data Loaded — Master Data Missing",
+        "FAMIS volume data is loaded but no Facility Master file has been uploaded. "
+        "Go to <b>Data Upload Centre</b> to upload the master file for full health calculations.",
+        accent=_ORANGE,
+    )
+else:
+    render_info_banner(
+        "Getting Started",
+        "No data has been uploaded yet. Start by going to <b>Data Upload Centre</b> "
+        "to upload your FAMIS volume file and Facility Master file.",
+        accent=_PURPLE,
     )
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Footer
-render_footer("HOME")
+# ── Workflow guide ──────────────────────────────────────────
+st.markdown(
+    '<div style="font-weight:700;color:#4D148C;font-size:13px;text-transform:uppercase;' +
+    'letter-spacing:0.8px;border-bottom:2px solid #4D148C;padding-bottom:6px;margin-bottom:14px;">' +
+    'Field Engineer Workflow</div>',
+    unsafe_allow_html=True,
+)
+
+render_step_guide([
+    {"title": "1 · Upload Data",
+     "description": "Navigate to <b>Data Upload Centre</b>. Upload your FAMIS REPORT Excel file "
+                    "(weekly/daily/monthly) and your Facility Master file. "
+                    "Data is automatically saved to the database — no manual publish required."},
+    {"title": "2 · Plan — Area, Resource & Courier",
+     "description": "Go to <b>Station Planning</b> to use the three planning tools: "
+                    "<b>Area Planning</b> calculates space requirements, "
+                    "<b>Resource Planning</b> calculates OSA/LASA/Dispatcher headcount, and "
+                    "<b>Courier Planning</b> calculates courier headcount. "
+                    "All tools auto-populate from uploaded FAMIS data."},
+    {"title": "3 · Monitor Health & Analytics",
+     "description": "Go to <b>Station Analytics</b> for the full health view: "
+                    "region-level KPI cards, per-station AREA/RESOURCE/COURIER status, "
+                    "and drill-down into individual stations with historical trend charts."},
+    {"title": "4 · Hub Operations",
+     "description": "Use <b>Hub Planning</b> for equivalent planning and monitoring "
+                    "at the hub level. Data is scoped separately from station data."},
+])
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ── Module cards ────────────────────────────────────────────
+st.markdown(
+    '<div style="font-weight:700;color:#4D148C;font-size:13px;text-transform:uppercase;' +
+    'letter-spacing:0.8px;border-bottom:2px solid #4D148C;padding-bottom:6px;margin-bottom:14px;">' +
+    'Available Modules</div>',
+    unsafe_allow_html=True,
+)
+
+mc1, mc2 = st.columns(2)
+render_module_card(mc1, "📤", "Data Upload Centre",
+    "Upload FAMIS volume files and Facility Master data. "
+    "Automatically persists to PostgreSQL and backs up locally. "
+    "View upload history and download data templates.",
+    accent=_PURPLE, gradient=True)
+render_module_card(mc2, "📊", "Station Analytics",
+    "Region-level health overview for all stations. "
+    "Click any station to drill down into historical Area, Resource and Courier trends. "
+    "Filterable by date, region and status.",
+    accent=_GREEN, gradient=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+mc3, mc4, mc5 = st.columns(3)
+render_module_card(mc3, "📐", "Area Planning",
+    "Calculate facility area requirements based on FAMIS volume: "
+    "sorting area, caging, equipment and aisle space.",
+    accent=_PURPLE)
+render_module_card(mc4, "👥", "Resource Planning",
+    "Calculate OSA, LASA, Dispatcher and Trace Agent headcount "
+    "requirements using configurable TACT values.",
+    accent=_PURPLE)
+render_module_card(mc5, "🚚", "Courier Planning",
+    "Compute courier headcount from volume, productivity, "
+    "absenteeism and training percentages.",
+    accent=_PURPLE)
+
+render_footer("FIELD")

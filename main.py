@@ -120,15 +120,21 @@ with st.sidebar:
 # ============================================================
 if role == "Facility":
     pages = {
-        "HOME": [
-            st.Page("pages/home.py", title="Home", icon="🏠", default=True),
+        "FIELD OPERATIONS": [
+            st.Page("pages/home.py",         title="Overview",             icon="🏠", default=True),
         ],
-        "FACILITIES": [
-            st.Page("pages/station_planner.py", title="Station", icon="🏢"),
-            st.Page("pages/hub_planner.py", title="Hub", icon="🏭"),
+        "UPLOADS & DATA": [
+            st.Page("pages/field_upload.py", title="Data Upload Centre",   icon="📤"),
         ],
-        "ADMINISTRATION": [
-            st.Page("pages/admin_controls.py", title="Configuration", icon="⚙️"),
+        "PLANNING TOOLS": [
+            st.Page("pages/station_planner.py", title="Station Planning",  icon="🏢"),
+            st.Page("pages/hub_planner.py",     title="Hub Planning",      icon="🏭"),
+        ],
+        "ANALYTICS": [
+            st.Page("pages/station_analytics.py", title="Station Analytics", icon="📊"),
+        ],
+        "CONFIGURATION": [
+            st.Page("pages/admin_controls.py", title="System Configuration", icon="⚙️"),
         ],
     }
 elif role == "Gateway":
@@ -137,7 +143,7 @@ elif role == "Gateway":
             st.Page("pages/home.py", title="Home", icon="🏠", default=True),
         ],
         "GATEWAY": [
-            st.Page("pages/gateway_ops.py", title="Gateway Operations", icon="🔗"),
+            st.Page("pages/gateway_ops.py", title="Gateway Operations", icon="✈️"),
         ],
     }
 elif role == "Services":
@@ -160,19 +166,24 @@ elif role == "Leadership":
     }
 elif role == "Operations":
     pages = {
-        "HOME": [
-            st.Page("pages/home.py", title="Home", icon="🏠", default=True),
+        "OVERVIEW": [
+            st.Page("pages/home.py",           title="Operations Overview",    icon="🏠", default=True),
         ],
-        "FACILITIES": [
-            st.Page("pages/station_planner.py", title="Station", icon="🏢"),
-            st.Page("pages/hub_planner.py", title="Hub", icon="🏭"),
+        "FIELD OPERATIONS": [
+            st.Page("pages/field_upload.py",   title="Data Upload Centre",     icon="📤"),
+            st.Page("pages/station_planner.py",title="Station Planning",       icon="🏢"),
+            st.Page("pages/hub_planner.py",    title="Hub Planning",           icon="🏭"),
+            st.Page("pages/station_analytics.py", title="Station Analytics",   icon="📊"),
         ],
-        "OPERATIONS": [
-            st.Page("pages/gateway_ops.py", title="Gateway Operations", icon="✈️"),
-            st.Page("pages/services_ops.py", title="Services Operations", icon="🛎️"),
+        "GATEWAY & SERVICES": [
+            st.Page("pages/gateway_ops.py",    title="Gateway Operations",     icon="✈️"),
+            st.Page("pages/services_ops.py",   title="Services Operations",    icon="🛠️"),
         ],
-        "ANALYTICS": [
-            st.Page("pages/leadership_dashboard.py", title="Analytics Overview", icon="📊"),
+        "LEADERSHIP": [
+            st.Page("pages/leadership_dashboard.py", title="Executive Dashboard", icon="👔"),
+        ],
+        "CONFIGURATION": [
+            st.Page("pages/admin_controls.py", title="System Configuration",   icon="⚙️"),
         ],
     }
 else:

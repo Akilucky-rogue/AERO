@@ -1,30 +1,25 @@
 # ============================================================
-# AERO — Station Planner (Tabbed Container)
-# Combines Health Monitor, Area Tracker, Resource Tracker,
-# and Courier Tracker into a single tabbed interface.
+# AERO — Station Planning Suite
+# Area, Resource and Courier planning tools for Field Engineers.
+# Health analytics are available in Station Analytics.
 # ============================================================
 import streamlit as st
 from aero.ui.header import render_header, render_footer
 
 
 render_header(
-    "STATION PLANNER",
-    "Health Monitoring, Area, Resource & Courier Planning",
+    "STATION PLANNING SUITE",
+    "Area · Resource · Courier Planning Tools",
     logo_height=80,
-    badge="STATION",
+    badge="PLANNING",
 )
 
 # ── Tabbed interface ─────────────────────────────────────────
-tab_health, tab_area, tab_resource, tab_courier = st.tabs([
-    "📊  HEALTH MONITOR",
-    "📐  AREA TRACKER",
-    "👥  RESOURCE TRACKER",
-    "🚚  COURIER TRACKER",
+tab_area, tab_resource, tab_courier = st.tabs([
+    "📐  AREA PLANNING",
+    "👥  RESOURCE PLANNING",
+    "🚚  COURIER PLANNING",
 ])
-
-with tab_health:
-    from pages.health_monitor import render as render_health
-    render_health()
 
 with tab_area:
     from pages.area_planner import render as render_area
@@ -38,4 +33,4 @@ with tab_courier:
     from pages.courier_planner import render as render_courier
     render_courier()
 
-render_footer("STATION")
+render_footer("PLANNING")

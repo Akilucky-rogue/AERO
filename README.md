@@ -1,175 +1,184 @@
 # AERO — Automated Evaluation of Resource Occupancy
 
-**FedEx Facility Planning & Health Monitoring Platform**
+Enterprise-grade FedEx India field-engineering analytics and planning platform built with Python + Streamlit.
 
-AERO is a Streamlit-based internal tool for FedEx operations that automates resource occupancy evaluation. It ingests FAMIS volume data to calculate staffing requirements, operational area needs, and courier capacity across multiple facility types.
+---
+
+## Overview
+
+AERO provides role-separated operational tooling for FedEx Planning & Engineering:
+
+| Role | What they see |
+|------|--------------|
+| **Field (Facility)** | Data Upload Centre · Station & Hub Planning · Station Analytics |
+| **Gateway** | Gateway Operations |
+| **Services** | Services Operations (Delay Prediction Engine) |
+| **Leadership** | Executive Dashboard (NSL Analytics, Station/Hub health) |
+| **Operations** | All modules |
+
+---
+
+## Quick Start
+
+```bat
+# 1. Create and activate virtual environment
+python -m venv .venv
+.venv\Scripts\activate
+
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Configure environment (copy and edit)
+copy .env .env.local      # or edit .env directly
+
+# 4. Run
+.venv\Scripts\streamlit run main.py
+```
+
+Default admin credentials (set in `.env`):
+
+| User | Password | Role |
+|------|----------|------|
+| `admin` | `Admin@123456` | Operations |
+| `facility_mgr` | `Facility@2024` | Facility |
+| `gateway_coord` | `Gateway@2024` | Gateway |
+| `services_lead` | `Services@2024` | Services |
+| `executive` | `Leadership@2024` | Leadership |
+
+---
+
+## Field Engineer Workflow
+
+### Step 1 — Upload Data (`Data Upload Centre`)
+- Drop FAMIS REPORT `.xlsx` files (weekly/daily/monthly) into the uploader.
+- Upload the Facility Master `.xlsx` file with station capacity baselines.
+- Both files are **automatically upserted** to PostgreSQL and archived locally in `docs/`.
+- No manual "Publish" button required.
+
+### Step 2 — Plan (`Station Planning`)
+Three tabbed planning tools, all auto-populated from uploaded FAMIS data:
+
+| Tab | Purpose |
+|-----|---------|
+| **Area Planning** | Sorting area, caging, equipment and aisle space from volume |
+| **Resource Planning** | OSA / LASA / Dispatcher / Trace Agent headcount via TACT |
+| **Courier Planning** | Courier headcount from stops, productivity and absenteeism |
+
+### Step 3 — Monitor (`Station Analytics`)
+- **Regional overview** — KPI cards: total stations, healthy %, critical alerts, network volume.
+- **Station status grid** — per-station AREA / RESOURCE / COURIER status cards colour-coded green/amber/red.
+- **Station drill-down** — click any station to see historical volume, area utilisation, agent and courier requirement trends with Plotly charts.
+- **Network volume trend** — last 30-day network-wide volume chart.
 
 ---
 
 ## Architecture
 
 ```
-main.py                  — App entry point: auth gate, navigation, session init
-pages/                   — Streamlit multi-page app (one file per page)
+main.py                  — App entry point, role-based routing
+pages/
+  home.py                — Role-specific landing pages
+  field_upload.py        — Data Upload Centre (FAMIS + Master)
+  station_planner.py     — Station Planning Suite (Area / Resource / Courier)
+  station_analytics.py   — Station Health Analytics & Drill-Down
+  hub_planner.py         — Hub Planning Suite
+  gateway_ops.py         — Gateway Operations (Phase 2)
+  services_ops.py        — Services Operations (Delay Predictor)
+  leadership_dashboard.py— Executive Dashboard (NSL Analytics)
+  admin_controls.py      — System Configuration
+  health_monitor.py      — Health Monitor renderer (used by hub page)
+  area_planner.py        — Area planning renderer
+  resource_planner.py    — Resource planning renderer
+  courier_planner.py     — Courier planning renderer
+
 aero/
-  auth/service.py        — bcrypt-based authentication against Excel credential store
-  config/settings.py     — TACT & area configuration (JSON-backed, cached)
-  core/                  — Pure business logic: area, resource, courier, health calculators
+  auth/service.py        — RBAC: bcrypt auth, role validation, user management
+  core/
+    area_calculator.py   — Area requirement calculations
+    resource_calculator.py— OSA/LASA/Dispatcher/Trace calculations
+    courier_calculator.py — Courier headcount calculations
+    health.py            — Shared health-status logic
   data/
-    excel_store.py       — FAMIS upload & report persistence (Excel)
-    station_store.py     — Per-station planner workbook CRUD (Excel)
-    postgres.py          — PostgreSQL health-data persistence (pooled connections)
-  db/schema.sql          — PostgreSQL schema with CHECK constraints and FK
-  ui/                    — Shared UI components: styles, sidebar, header, session state
-assets/                  — Static assets (logo, fonts)
-data/                    — Runtime data directory (gitignored — xlsx files created here)
-tests/                   — pytest unit tests for all aero/core/ and security functions
-```
-
-### Dual Storage Strategy
-
-| Store | Purpose | Format |
-|---|---|---|
-| Excel (`data/*.xlsx`) | Transient planning data; per-station Area / Resource / Courier inputs | openpyxl |
-| PostgreSQL (`station_health`) | Persistent health-monitor summaries; queryable across uploads | psycopg2 pool |
-
-The two stores are intentionally independent — Excel holds live planning state while PostgreSQL holds time-series health snapshots. No automatic synchronization is performed.
-
----
-
-## Prerequisites
-
-- Python 3.11+
-- PostgreSQL 14+ (optional — app runs in Excel-only mode if DB is unavailable)
-- Git
-
----
-
-## Setup
-
-### 1. Clone and create a virtual environment
-
-```bash
-git clone https://github.com/Shubzzz10/AERO.git
-cd AERO
-python -m venv .venv
-# Windows
-.venv\Scripts\activate
-# macOS/Linux
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2. Configure environment variables
-
-```bash
-cp .env.example .env
-```
-
-Edit `.env` and fill in real values:
-
-| Variable | Required | Description |
-|---|---|---|
-| `POSTGRES_HOST` | No | DB host (default: `localhost`) |
-| `POSTGRES_PORT` | No | DB port (default: `5432`) |
-| `POSTGRES_DB` | No | DB name (default: `aero_planner`) |
-| `POSTGRES_USER` | No | DB user (default: `postgres`) |
-| `POSTGRES_PASSWORD` | **Yes** | DB password — no default, must be set |
-| `AERO_SEED_USER_<N>_ID` | First run | Login ID for user slot N (1–10) |
-| `AERO_SEED_USER_<N>_PASS` | First run | Password for user slot N (plain, hashed on write) |
-| `AERO_SEED_USER_<N>_ROLE` | First run | Role: `Facility`, `Gateway`, `Services`, `Leadership` |
-| `AERO_SEED_USER_<N>_NAME` | No | Display name for user slot N |
-
-> **Important:** `.env` is gitignored and must never be committed. All credentials live in `.env` only.
-
-### 3. Set up the PostgreSQL database (if using DB features)
-
-```bash
-# Create the database
-psql -U postgres -c "CREATE DATABASE aero_planner;"
-
-# Schema is applied automatically by the app on first use.
-# To apply manually:
-psql -U postgres -d aero_planner -f aero/db/schema.sql
-```
-
-### 4. First-run user seeding
-
-On first startup, if `data/AERO_USERS.xlsx` does not exist, the app reads `AERO_SEED_USER_*` env vars to create it. Passwords are hashed with bcrypt (work factor 12) and the plaintext is never stored.
-
-If no seed vars are set, `AERO_USERS.xlsx` must be created manually with columns: `user_id`, `display_name`, `role`, `password_hash`, `is_active`.
-
-### 5. Run the application
-
-```bash
-streamlit run main.py
+    famis_store.py       — PostgreSQL FAMIS persistence layer
+    nsl_store.py         — PostgreSQL NSL analytics persistence
+    excel_store.py       — Excel fallback persistence (FAMIS_UPLOADED_FILES.xlsx)
+    hub_store.py         — Hub-scoped Excel persistence
+    inbox_loader.py      — Inbox folder auto-scan (aero/data/inbox/)
+    station_store.py     — Station master workbook CRUD
+    postgres.py          — PostgreSQL connection pool (psycopg2)
+  db/schema.sql          — PostgreSQL schema (upload_history, station_health,
+                           nsl_shipments, nsl_upload_log, famis_data, famis_upload_log)
+  config/settings.py     — TACT / area config (tact.json, area.json), 5-min cache
+  ui/
+    components.py        — Reusable FedEx-branded UI elements
+    header.py            — Top bar (logo, title, user badge)
+    sidebar.py           — Sidebar animation CSS
+    styles.py            — Global CSS variables and brand colours
+    session.py           — Session state initialisation
+    nsl_tab.py           — NSL analytics tab renderer
 ```
 
 ---
 
-## Running Tests
+## Data Persistence
 
-```bash
-# From the project root, with the venv activated:
-pip install pytest
-pytest tests/ -v
-```
-
-Test files:
-
-| File | Coverage |
-|---|---|
-| `tests/test_health.py` | `aero.core.health` — all branches of `calculate_health_status`, `get_summary_stats` |
-| `tests/test_area_calculator.py` | `aero.core.area_calculator` — facility models A/B/C/D, area health status |
-| `tests/test_resource_calculator.py` | `aero.core.resource_calculator` — OSA, LASA, Dispatcher, Trace Agent |
-| `tests/test_security.py` | Formula injection sanitizer, path traversal guard, bcrypt hashing |
+| Data | Primary Store | Fallback |
+|------|--------------|---------|
+| FAMIS volume data | PostgreSQL `famis_data` | `data/FAMIS_UPLOADED_FILES.xlsx` |
+| Health reports | PostgreSQL `station_health` | `data/FAMIS_REPORT_DATA.xlsx` |
+| NSL shipments | PostgreSQL `nsl_shipments` | Local pickle cache `_nsl_cache.pkl` |
+| MD Scorecard | Local pickle `_scorecard_cache.pkl` | — |
+| File archives | `docs/famis/` · `docs/master/` | — |
+| Inbox auto-load | `aero/data/inbox/{famis,nsl,scorecard}/` | — |
 
 ---
 
-## Security Notes
+## PostgreSQL Setup (Optional — Enables Full Analytics)
 
-| Finding | Remediation |
-|---|---|
-| SEC-001: No plaintext credentials in source | First-run seeding reads from `.env` vars only |
-| SEC-003: bcrypt hashing | `_hash_password()` uses `bcrypt.hashpw` with gensalt; SHA-256 hashes auto-upgrade on login |
-| SEC-004: No empty DB password | `POSTGRES_PASSWORD` has no default; app raises `RuntimeError` if unset |
-| SEC-006: Formula injection | All Excel writes pass through `_sanitize_cell()` / `_sanitize_df()` |
-| SEC-007: Path traversal | `_safe_path()` in `station_store.py` validates all paths against `DATA_DIR` |
-| SEC-011: XSRF protection | `.streamlit/config.toml` sets `enableXsrfProtection = true`, `enableCORS = false` |
+```bat
+REM 1. Install PostgreSQL 16+ from https://www.postgresql.org/download/windows
+REM 2. Create database
+"C:\Program Files\PostgreSQL\16\bin\psql" -U postgres -c "CREATE DATABASE aero_planner;"
+REM 3. Apply schema
+"C:\Program Files\PostgreSQL\16\bin\psql" -U postgres -d aero_planner -f aero\db\schema.sql
+REM 4. Restart app — auto-detects DB and switches from Excel to PostgreSQL mode
+```
 
-For production deployments, add a reverse proxy (nginx/Caddy) that sets:
-- `Content-Security-Policy`
-- `X-Frame-Options: DENY`
-- `Strict-Transport-Security`
+`.env` is pre-configured for `localhost:5432 / aero_planner / postgres`. Change `POSTGRES_PASSWORD` to match your installation.
+
+---
+
+## Security
+
+- **Authentication**: bcrypt (work factor 12) with auto-upgrade from legacy SHA-256
+- **RBAC**: Strict role-based page routing — each role sees only its own modules
+- **Formula injection prevention** (SEC-006): Excel cell values prefixed if they start with `=+-@|%`
+- **Path traversal prevention** (SEC-007): All file paths validated against `DATA_DIR` / `PROJECT_ROOT`
+- **Atomic writes** (DL-008): Temp file + `os.replace()` — no corrupt workbooks on crash
+- **Connection pooling**: `ThreadedConnectionPool(min=1, max=5)` for PostgreSQL
+
+---
+
+## Inbox Auto-Load
+
+Drop files into these folders and restart the app — data is auto-ingested:
+
+```
+aero/data/inbox/
+  famis/       ← FAMIS REPORT_WE_*.xlsx
+  nsl/         ← IN Outbound/Inbound *.txt / *.csv
+  scorecard/   ← MD Scorecard *.xlsb
+  processed/   ← auto-moved after ingestion
+```
 
 ---
 
 ## Configuration
 
-TACT values (time-allocation coefficients) and area constants are managed via the **Admin Configuration** page (Facility role only) and are persisted to:
+Edit via **System Configuration** in the app or directly:
 
-- `aero/config/tact.json` — OSA, LASA, Dispatcher, Trace Agent, Courier TACT values
-- `aero/config/area.json` — Area planner constants (pallet area, aisle %, cage %, etc.)
-
-Both files are loaded with a 5-minute in-memory cache (`@st.cache_data(ttl=300)`) and the cache is invalidated automatically whenever a config save occurs.
-
----
-
-## Role-Based Access
-
-| Role | Pages |
-|---|---|
-| Facility | Home, Station Planner, Hub Planner, Admin Configuration |
-| Gateway | Home, Gateway Operations |
-| Services | Home, Services Operations |
-| Leadership | Home, Executive Dashboard |
-
----
-
-## Deployment Notes
-
-1. Set all required `.env` variables in your hosting environment (never commit `.env`)
-2. Ensure `data/` is a persistent volume (not ephemeral)
-3. Set `POSTGRES_PASSWORD` as a secret in your deployment platform
-4. Point Streamlit's `server.port` and `server.baseUrlPath` appropriately
-5. Add a reverse proxy with TLS termination and security headers
+| File | Contents |
+|------|---------|
+| `aero/config/tact.json` | OSA / LASA / Dispatcher / Trace Agent TACT values (minutes) |
+| `aero/config/area.json` | Area constants: pallet area, aisle %, sorting %, cage % |
+| `.env` | DB connection, seed users, app settings |
