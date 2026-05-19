@@ -18,6 +18,7 @@ if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 import pandas as pd
+# pyrefly: ignore [missing-import]
 import streamlit as st
 
 from aero.ui.header import render_header, render_footer

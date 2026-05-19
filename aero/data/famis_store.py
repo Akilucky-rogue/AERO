@@ -15,7 +15,10 @@ import logging
 import os
 from datetime import datetime
 
+import warnings
 import pandas as pd
+
+warnings.filterwarnings("ignore", category=UserWarning, module="pandas")
 
 logger = logging.getLogger(__name__)
 
@@ -41,12 +44,10 @@ _BATCH_SIZE = 10_000
 def db_available() -> bool:
     """Return True if psycopg2 is installed and a connection succeeds."""
     try:
-        from aero.data.postgres import _get_pool  # type: ignore
-        pool = _get_pool()
-        conn = pool.getconn()
-        with conn.cursor() as cur:
-            cur.execute("SELECT 1")
-        pool.putconn(conn)
+        from aero.data.postgres import _connection
+        with _connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1")
         return True
     except Exception as exc:
         logger.debug("FAMIS DB not available: %s", exc)

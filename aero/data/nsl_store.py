@@ -14,7 +14,10 @@ db_available()               → True if psycopg2 + connection work
 import logging
 from datetime import datetime
 
+import warnings
 import pandas as pd
+
+warnings.filterwarnings("ignore", category=UserWarning, module="pandas")
 
 logger = logging.getLogger(__name__)
 
@@ -71,8 +74,8 @@ _BATCH_SIZE = 50_000   # rows per execute_values call
 def db_available() -> bool:
     """Return True if psycopg2 is installed and a test connection succeeds."""
     try:
-        from aero.data.postgres import get_connection  # type: ignore
-        with get_connection() as conn:
+        from aero.data.postgres import _connection  # type: ignore
+        with _connection() as conn:
             with conn.cursor() as cur:
                 cur.execute("SELECT 1")
         return True
@@ -84,7 +87,7 @@ def db_available() -> bool:
 def ensure_nsl_tables() -> None:
     """Apply the NSL portion of schema.sql (idempotent — IF NOT EXISTS)."""
     import os
-    from aero.data.postgres import get_connection  # type: ignore
+    from aero.data.postgres import _connection  # type: ignore
 
     schema_path = os.path.join(os.path.dirname(__file__), "..", "db", "schema.sql")
     ddl = open(schema_path).read()
@@ -94,7 +97,7 @@ def ensure_nsl_tables() -> None:
     idx = ddl.find(marker)
     nsl_ddl = ddl[idx:] if idx != -1 else ddl
 
-    with get_connection() as conn:
+    with _connection() as conn:
         with conn.cursor() as cur:
             cur.execute(nsl_ddl)
         conn.commit()
@@ -108,7 +111,7 @@ def upsert_nsl_data(df: pd.DataFrame, filename: str,
     Returns a metadata dict:
         rows_upserted, total_rows_db, uploaded_at, filename
     """
-    from aero.data.postgres import get_connection  # type: ignore
+    from aero.data.postgres import _connection  # type: ignore
     try:
         from psycopg2.extras import execute_values  # type: ignore
     except ImportError as e:
@@ -147,7 +150,7 @@ def upsert_nsl_data(df: pd.DataFrame, filename: str,
     rows_upserted = 0
     now = datetime.utcnow()
 
-    with get_connection() as conn:
+    with _connection() as conn:
         with conn.cursor() as cur:
             # Batch upsert
             for start in range(0, len(sub), _BATCH_SIZE):
@@ -183,10 +186,10 @@ def upsert_nsl_data(df: pd.DataFrame, filename: str,
 
 def load_nsl_from_db() -> pd.DataFrame:
     """Load all NSL shipment rows from the DB into a DataFrame."""
-    from aero.data.postgres import get_connection  # type: ignore
+    from aero.data.postgres import _connection  # type: ignore
 
     sql = f"SELECT {', '.join(_DB_COLS)}, updated_at FROM nsl_shipments"
-    with get_connection() as conn:
+    with _connection() as conn:
         df = pd.read_sql(sql, conn)
 
     # Rename DB cols back to app-expected names
@@ -204,8 +207,8 @@ def load_nsl_from_db() -> pd.DataFrame:
 
 def nsl_row_count() -> int:
     """Return the number of rows currently in nsl_shipments."""
-    from aero.data.postgres import get_connection  # type: ignore
-    with get_connection() as conn:
+    from aero.data.postgres import _connection  # type: ignore
+    with _connection() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM nsl_shipments")
             return cur.fetchone()[0]
@@ -213,8 +216,8 @@ def nsl_row_count() -> int:
 
 def get_nsl_upload_log(n: int = 10) -> list:
     """Return the last *n* upload log entries as a list of dicts."""
-    from aero.data.postgres import get_connection  # type: ignore
-    with get_connection() as conn:
+    from aero.data.postgres import _connection  # type: ignore
+    with _connection() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
