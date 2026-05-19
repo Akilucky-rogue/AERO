@@ -359,4 +359,5 @@ with st.expander("⬇️  Download Data Templates", expanded=False):
         st.download_button(
             "⬇️ Master Template", buf2.getvalue(), "Master_Template.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_wid
+            use_container_width=True,
+        )

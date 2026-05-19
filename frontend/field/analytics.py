@@ -79,19 +79,24 @@ def _get_master() -> pd.DataFrame:
 # ── Per-row health computation ────────────────────────────────────────────────
 def _compute_status_row(row: pd.Series, master_row: pd.Series,
                          cfg: dict, area_cfg: dict) -> dict:
-    vol     = int(row.get("pk_gross_tot", 0) or 0)
-    ib      = int(row.get("pk_gross_inb",  0) or 0)
-    ob      = int(row.get("pk_gross_outb", 0) or 0)
-    roc_raw = int(row.get("pk_roc", 0) or 0)
+    import math
+    def _safe_int(v):
+        if pd.isna(v) or v is None: return 0
+        try: return int(float(v))
+        except: return 0
+
+    vol     = _safe_int(row.get("pk_gross_tot"))
+    ib      = _safe_int(row.get("pk_gross_inb"))
+    ob      = _safe_int(row.get("pk_gross_outb"))
+    roc_raw = _safe_int(row.get("pk_roc"))
     roc     = int(roc_raw * 0.25)
     asp     = roc_raw - roc
 
     mr_empty = master_row is None or (hasattr(master_row, "empty") and master_row.empty)
-    ops_area   = float(master_row.get("ops_area", 0) or 0)  if not mr_empty else 0.0
-    m_agents   = float(master_row.get("current_total_agents",
-                        master_row.get("current_total_osa", 0)) or 0) if not mr_empty else 0.0
-    m_couriers = int(master_row.get("current_total_couriers",
-                      master_row.get("couriers_available", 0)) or 0) if not mr_empty else 0
+    ops_area   = float(master_row.get("ops_area", 0) or 0) if not mr_empty and not pd.isna(master_row.get("ops_area")) else 0.0
+    m_agents   = float(master_row.get("current_total_agents", master_row.get("current_total_osa", 0)) or 0) if not mr_empty else 0.0
+    if pd.isna(m_agents): m_agents = 0.0
+    m_couriers = _safe_int(master_row.get("current_total_couriers", master_row.get("couriers_available", 0)) if not mr_empty else 0)
 
     result = {
         "loc_id": row["loc_id"], "date": row["date"], "pk_gross_tot": vol,
