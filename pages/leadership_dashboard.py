@@ -8,6 +8,7 @@ import pandas as pd
 from aero.ui.header import render_header, render_footer
 from aero.data.excel_store import read_report_sheet
 from aero.data.hub_store import read_hub_report_sheet
+from aero.ui.nsl_tab import render_nsl_tab
 
 render_header(
     "EXECUTIVE DASHBOARD",
@@ -240,37 +241,7 @@ with tab_gw:
 # TAB 3 — SERVICES
 # ============================================================
 with tab_svc:
-    _section_header("Services Analytics", "Customer-facing SLA compliance and service quality metrics", "#7B241C")
-
-    st.markdown("""
-    <div style="background:#FDEDEC;border-left:5px solid #7B241C;border-radius:8px;
-        padding:14px 18px;margin-bottom:16px;">
-        <div style="font-weight:700;color:#7B241C;font-size:13px;text-transform:uppercase;
-            letter-spacing:0.5px;">Services Analytics — Phase 2 Integration</div>
-        <div style="color:#555;font-size:12px;margin-top:4px;">Live services data integration is scheduled for Phase 2.
-        Placeholder metrics below indicate the KPIs that will be tracked and reported.</div>
-    </div>""", unsafe_allow_html=True)
-
-    sv1, sv2, sv3 = st.columns(3)
-    with sv1: _phase_card("SLA Compliance Rate", "#7B241C")
-    with sv2: _phase_card("Customer Contacts", "#7B241C")
-    with sv3: _phase_card("First-Attempt Delivery", "#7B241C")
-
-    st.markdown("---")
-    _section_header("Report Coverage — Phase 2", "What the Services tab will report on activation", "#7B241C")
-    _phase_scope(
-        "Services Scope",
-        [
-            "SLA adherence tracking by station, division, and service type",
-            "Customer contact and complaint volume trending",
-            "First-attempt delivery rate and repeat visit analysis",
-            "Service failure root-cause categorization",
-            "Courier performance vs. committed delivery windows",
-            "NPS and customer satisfaction score integration",
-        ],
-        "#FDEDEC",
-        "#7B241C",
-    )
+    render_nsl_tab()
 
 render_footer("LEADERSHIP")
 

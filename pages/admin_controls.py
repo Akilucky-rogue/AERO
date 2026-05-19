@@ -471,7 +471,7 @@ with st.expander("User Management — Create or Update User Accounts", expanded=
     if _df_users.empty:
         st.info("No users found.")
     else:
-        st.dataframe(_df_users, use_container_width=True, hide_index=True)
+        st.dataframe(_df_users, width="stretch", hide_index=True)
 
 
 # ---------------- LOGOUT BUTTON ----------------

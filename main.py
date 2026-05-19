@@ -116,69 +116,119 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
 # ============================================================
-# NAVIGATION — role-specific page structure
+# NAVIGATION — strict role-based page structure
+# Each role sees ONLY their section — no cross-role leakage.
 # ============================================================
+
 if role == "Facility":
+    # ── Field Engineer ────────────────────────────────────────
     pages = {
-        "HOME": [
-            st.Page("pages/home.py", title="Home", icon="🏠", default=True),
+        "UPLOADS & DATA": [
+            st.Page("frontend/field/upload_centre.py",
+                    title="Data Upload Centre", icon="📤",
+                    url_path="upload-centre", default=True),
         ],
-        "FACILITIES": [
-            st.Page("pages/station_planner.py", title="Station", icon="🏢"),
-            st.Page("pages/hub_planner.py", title="Hub", icon="🏭"),
+        "PLANNING TOOLS": [
+            st.Page("frontend/field/planning_suite.py",
+                    title="Station Planning", icon="🏢",
+                    url_path="station-planning"),
+            st.Page("frontend/field/hub_coming_soon.py",
+                    title="Hub Planning", icon="🏭",
+                    url_path="hub-planning"),
         ],
-        "ADMINISTRATION": [
-            st.Page("pages/admin_controls.py", title="Configuration", icon="⚙️"),
+        "ANALYTICS & CONFIG": [
+            st.Page("frontend/field/analytics.py",
+                    title="Station Analytics", icon="📊",
+                    url_path="station-analytics"),
         ],
     }
+
 elif role == "Gateway":
     pages = {
         "HOME": [
-            st.Page("pages/home.py", title="Home", icon="🏠", default=True),
+            st.Page("pages/home.py", title="Home", icon="🏠",
+                    url_path="home", default=True),
         ],
         "GATEWAY": [
-            st.Page("pages/gateway_ops.py", title="Gateway Operations", icon="🔗"),
+            st.Page("frontend/gateway/operations.py",
+                    title="Gateway Operations", icon="✈️",
+                    url_path="gateway-operations"),
         ],
     }
+
 elif role == "Services":
     pages = {
         "HOME": [
-            st.Page("pages/home.py", title="Home", icon="🏠", default=True),
+            st.Page("pages/home.py", title="Home", icon="🏠",
+                    url_path="home", default=True),
         ],
         "SERVICES": [
-            st.Page("pages/services_ops.py", title="Services Operations", icon="🛠️"),
+            st.Page("frontend/services/operations.py",
+                    title="Services Operations", icon="🛠️",
+                    url_path="services-operations"),
         ],
     }
+
 elif role == "Leadership":
     pages = {
         "HOME": [
-            st.Page("pages/home.py", title="Home", icon="🏠", default=True),
+            st.Page("pages/home.py", title="Home", icon="🏠",
+                    url_path="home", default=True),
         ],
         "LEADERSHIP": [
-            st.Page("pages/leadership_dashboard.py", title="Executive Dashboard", icon="👔"),
+            st.Page("frontend/leadership/dashboard.py",
+                    title="Executive Dashboard", icon="👔",
+                    url_path="executive-dashboard"),
         ],
     }
+
 elif role == "Operations":
+    # ── Admin / Operations — full visibility across ALL modules ──────────────
     pages = {
-        "HOME": [
-            st.Page("pages/home.py", title="Home", icon="🏠", default=True),
+        "OVERVIEW": [
+            st.Page("frontend/admin/overview.py",
+                    title="Operations Overview", icon="🏠",
+                    url_path="ops-overview", default=True),
         ],
-        "FACILITIES": [
-            st.Page("pages/station_planner.py", title="Station", icon="🏢"),
-            st.Page("pages/hub_planner.py", title="Hub", icon="🏭"),
+        "FIELD OPERATIONS": [
+            st.Page("frontend/field/upload_centre.py",
+                    title="Data Upload Centre", icon="📤",
+                    url_path="upload-centre"),
+            st.Page("frontend/field/planning_suite.py",
+                    title="Station Planning", icon="🏢",
+                    url_path="station-planning"),
+            st.Page("frontend/field/hub_coming_soon.py",
+                    title="Hub Planning", icon="🏭",
+                    url_path="hub-planning"),
+            st.Page("frontend/field/analytics.py",
+                    title="Station Analytics", icon="📊",
+                    url_path="station-analytics"),
         ],
-        "OPERATIONS": [
-            st.Page("pages/gateway_ops.py", title="Gateway Operations", icon="✈️"),
-            st.Page("pages/services_ops.py", title="Services Operations", icon="🛎️"),
+        "GATEWAY & SERVICES": [
+            st.Page("frontend/gateway/operations.py",
+                    title="Gateway Operations", icon="✈️",
+                    url_path="gateway-operations"),
+            st.Page("frontend/services/operations.py",
+                    title="Services Operations", icon="🛠️",
+                    url_path="services-operations"),
         ],
-        "ANALYTICS": [
-            st.Page("pages/leadership_dashboard.py", title="Analytics Overview", icon="📊"),
+        "LEADERSHIP": [
+            st.Page("frontend/leadership/dashboard.py",
+                    title="Executive Dashboard", icon="👔",
+                    url_path="executive-dashboard"),
+        ],
+        "SYSTEM": [
+            st.Page("pages/admin_controls.py",
+                    title="System Configuration", icon="⚙️",
+                    url_path="system-config"),
         ],
     }
+
 else:
     pages = {
         "HOME": [
-            st.Page("pages/home.py", title="Home", icon="🏠", default=True),
+            st.Page("pages/home.py", title="Home", icon="🏠",
+                    url_path="home", default=True),
         ],
     }
 

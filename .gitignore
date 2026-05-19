@@ -49,3 +49,14 @@ node_modules/
 _apply_changes*.py
 _new_analytics_content.txt
 write_styles_helper.py
+migrate_to_pgadmin.py
+audit_db.py
+audit_db_final.py
+_filter_reqs.py
+
+# Large data files
+data/NSL_MODEL.json
+data/*.json
+docs/famis/
+docs/master/
+aero/data/inbox/processed/

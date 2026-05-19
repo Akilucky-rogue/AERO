@@ -306,7 +306,6 @@ with left_col:
                     if user:
                         login_user(user)
                         st.success(f"✓ Welcome, {user.get('display_name', user_id)}!")
-                        st.balloons()
                         st.session_state.pop("login_user_id", None)
                         st.session_state.pop("login_password", None)
                         import time

@@ -16,9 +16,19 @@ from contextlib import contextmanager
 from datetime import datetime
 
 from dotenv import load_dotenv
-import psycopg2  # type: ignore
-from psycopg2 import pool as pg_pool  # type: ignore
-from psycopg2.extras import execute_values  # type: ignore
+
+# psycopg2 is optional — app runs in Excel-only mode without it.
+# The lazy import in health_monitor.py is also guarded with try/except.
+try:
+    import psycopg2  # type: ignore
+    from psycopg2 import pool as pg_pool  # type: ignore
+    from psycopg2.extras import execute_values  # type: ignore
+    _PG_AVAILABLE = True
+except ImportError:
+    psycopg2 = None  # type: ignore
+    pg_pool = None  # type: ignore
+    execute_values = None  # type: ignore
+    _PG_AVAILABLE = False
 
 load_dotenv()
 

@@ -64,6 +64,26 @@ total_trace_time = 0
 def render():
     """Render the Station Resource Tracker content (called from station_planner.py tab)."""
 
+    # Re-initialize session state every render (module-level inits only run once
+    # due to Python's module cache, so we guard here to survive Streamlit reruns)
+    _ss_defaults = {
+        "calculate_clicked": False,
+        "osa_excluded_tasks": set(),
+        "osa_custom_tasks": [],
+        "custom_name": "",
+        "custom_tact": 0.0,
+        "custom_param": 0.0,
+        "calculated_osa_time": 0,
+        "calculated_lasa_time": 0,
+        "calculated_dispatcher_time": 0,
+        "calculated_trace_time": 0,
+        "lasa_excluded_tasks": set(),
+        "lasa_custom_tasks": [],
+    }
+    for _k, _v in _ss_defaults.items():
+        if _k not in st.session_state:
+            st.session_state[_k] = _v
+
     # Re-bind globals that the UI code mutates
     global total_osa_time, total_lasa_time, total_dispatcher_time, total_trace_time
 
@@ -1339,7 +1359,7 @@ def render():
         })
 
         st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
-        st.dataframe(sharp_df, hide_index=True, use_container_width=True)
+        st.dataframe(sharp_df, hide_index=True, width="stretch")
 
         # Final Agent Requirement
         # Use model-adjusted agent totals (osa/lasa/dispatcher already multiplied above)

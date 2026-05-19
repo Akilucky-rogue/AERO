@@ -29,6 +29,18 @@ from aero.data.excel_store import (
     save_health_reports,
     read_report_sheet,
 )
+# PostgreSQL FAMIS store (DB-first; falls back to excel_store when DB unavailable)
+try:
+    from aero.data.famis_store import (  # type: ignore
+        db_available as _famis_db_available,
+        ensure_famis_tables as _ensure_famis_tables,
+        upsert_famis_data as _upsert_famis_db,
+        load_famis_from_db as _load_famis_db,
+        famis_row_count as _famis_row_count,
+    )
+    _FAMIS_STORE_OK = True
+except Exception:
+    _FAMIS_STORE_OK = False
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -101,8 +113,66 @@ def _fmt_area(value):
         return "0"
 
 
+def _load_famis_df(file_bytes_or_path, filename: str) -> None:
+    """Parse, validate and store FAMIS data in session state + Excel store."""
+    from aero.data.inbox_loader import parse_famis_file
+    valid_cols = list(FAMIS_ALLOWED_HEADERS.keys())
+    famis_df = parse_famis_file(file_bytes_or_path)
+    famis_df = famis_df[[c for c in famis_df.columns if c in valid_cols]]
+    st.session_state["famis_data_raw"]  = famis_df.copy()
+    st.session_state["famis_data"]      = famis_df
+    st.session_state["famis_file_name"] = filename
+    try:
+        # Upsert to PostgreSQL first; fall back to Excel store
+        if _FAMIS_STORE_OK:
+            try:
+                _ensure_famis_tables()
+                _upsert_famis_db(famis_df, filename)
+            except Exception as _dbe:
+                logger.warning("FAMIS DB upsert failed, falling back to Excel: %s", _dbe)
+                upsert_famis_upload(famis_df)
+        else:
+            upsert_famis_upload(famis_df)
+    except Exception:
+        pass
+
+
 def render():
     """Render the Station Health Monitor content (called from station_planner.py tab)."""
+
+    # ── Auto-load from inbox (runs once per session) ──────────────────────────
+    if not st.session_state.get("_famis_inbox_checked"):
+        st.session_state["_famis_inbox_checked"] = True
+        try:
+            from aero.data.inbox_loader import scan_famis_inbox
+            inbox_files = scan_famis_inbox(auto_move=False)
+            if inbox_files and st.session_state.get("famis_data") is None:
+                newest = inbox_files[0]
+                _load_famis_df(newest["path"], newest["filename"])
+                n_rows = len(newest["df"])
+                st.toast(f"📂 Auto-loaded FAMIS: {newest['filename']} "
+                         f"({n_rows:,} station-week rows from inbox)", icon="✅")
+        except Exception:
+            pass  # non-blocking
+
+    # ── Restore from persisted Excel store if still no data ───────────────────
+    if st.session_state.get("famis_data") is None:
+        try:
+            # Try PostgreSQL first
+            stored = None
+            if _FAMIS_STORE_OK:
+                try:
+                    if _famis_db_available() and _famis_row_count() > 0:
+                        stored = _load_famis_db()
+                except Exception:
+                    stored = None
+            if stored is None or stored.empty:
+                stored = read_famis_uploads()
+            if stored is not None and not stored.empty:
+                st.session_state["famis_data_raw"] = stored.copy()
+                st.session_state["famis_data"]     = stored
+        except Exception:
+            pass
 
     upload_col1, upload_col2 = st.columns(2)
 
@@ -111,47 +181,16 @@ def render():
             "Upload Facility Volume Excel File",
             type=["xlsx"],
             key="famis_upload",
-            help="Upload the Facility Volume data file"
+            help="Upload FAMIS REPORT xlsx — or drop it in aero/data/inbox/famis/ to skip this step."
         )
 
         if famis_file:
             try:
-                famis_df = pd.read_excel(famis_file)
-                # Normalize column names: strip, lowercase, replace spaces and special chars
-                famis_df.columns = (
-                    famis_df.columns
-                    .str.strip()
-                    .str.lower()
-                    .str.replace(" ", "_")
-                    .str.replace("/", "_")
-                )
-
-                # Validate: only allow specified columns
-                valid_cols = list(FAMIS_ALLOWED_HEADERS.keys())
-                available_cols = [col for col in valid_cols if col in famis_df.columns]
-                invalid_cols = [col for col in famis_df.columns if col not in valid_cols]
-
-                # Minimum required columns: date, loc_id, pk_gross_tot
-                REQUIRED_COLS = ['date', 'loc_id', 'pk_gross_tot']
-                has_required = all(col in famis_df.columns for col in REQUIRED_COLS)
-
-                if has_required:
-                    famis_df['date'] = pd.to_datetime(famis_df['date']).dt.normalize()
-                    # Keep only allowed columns
-                    famis_df = famis_df[[col for col in famis_df.columns if col in valid_cols]]
-                    st.session_state['famis_data_raw'] = famis_df.copy()
-                    st.session_state['famis_data'] = famis_df
-                    # Persist to FAMIS UPLOADED DATA Excel
-                    try:
-                        n = upsert_famis_upload(famis_df)
-                        st.session_state['famis_file_name'] = famis_file.name
-                    except Exception:
-                        pass  # non-blocking
-                else:
-                    missing = set(REQUIRED_COLS) - set(available_cols)
-                    st.error(f" Missing required columns: {', '.join(missing)}")
+                _load_famis_df(famis_file.read(), famis_file.name)
+                st.success(f"✅ Loaded {len(st.session_state['famis_data']):,} "
+                           f"station-week rows from {famis_file.name}")
             except Exception as e:
-                st.error(f" Error loading FAMIS file: {str(e)}")
+                st.error(f"❌ Could not parse FAMIS file: {e}")
 
     with upload_col2:
         master_file = st.file_uploader(
@@ -590,7 +629,7 @@ def render():
                 st.markdown("<div style='height:12px'></div>", unsafe_allow_html=True)
                 st.dataframe(
                     summary_df,
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     column_config={
                         'DATE':            st.column_config.TextColumn('DATE', width=110),
@@ -762,7 +801,7 @@ def render():
 
                 st.dataframe(
                     resource_summary_df,
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     column_config={
                         'DATE':              st.column_config.TextColumn('DATE', width=110),
@@ -1293,7 +1332,7 @@ def render():
                 # Display table
                 st.dataframe(
                     courier_summary_df,
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True,
                     column_config={
                         'DATE': st.column_config.TextColumn('DATE', width=80),
@@ -2015,7 +2054,7 @@ def render():
                     xaxis_title=an_timeframe.title() + ' Period', yaxis_title='Packages',
                     font=dict(family='DM Sans, Inter, sans-serif', size=12)
                 )
-                st.plotly_chart(fig_vol, use_container_width=True)
+                st.plotly_chart(fig_vol, width="stretch")
 
                 # --- Adjust Y-axis to an "assumed" zoomed range to better show trend variations
                 try:
@@ -2126,7 +2165,7 @@ def render():
                                     yaxis=dict(tickfont=dict(size=13, color='#222222', family='DM Sans, Inter, sans-serif')),
                                     font=dict(family='DM Sans, Inter, sans-serif', size=12)
                                 )
-                                st.plotly_chart(fig_best, use_container_width=True)
+                                st.plotly_chart(fig_best, width="stretch")
 
                             with rank_col2:
                                 st.markdown(
@@ -2151,7 +2190,7 @@ def render():
                                     yaxis=dict(tickfont=dict(size=13, color='#222222', family='DM Sans, Inter, sans-serif')),
                                     font=dict(family='DM Sans, Inter, sans-serif', size=12)
                                 )
-                                st.plotly_chart(fig_worst, use_container_width=True)
+                                st.plotly_chart(fig_worst, width="stretch")
 
                 # ==========================================================
                 # CHART 3 — Courier Productivity Trends (ST/H, PK/ST, PK/FTE)
@@ -2278,7 +2317,7 @@ def render():
                             yaxis_title='Metric Value',
                             font=dict(family='DM Sans, Inter, sans-serif', size=12)
                         )
-                        st.plotly_chart(fig_prod, use_container_width=True)
+                        st.plotly_chart(fig_prod, width="stretch")
 
                         # --- Apply an "assumed" Y-axis zoom for selected productivity metrics
                         try:
@@ -2385,8 +2424,17 @@ def render():
                 from aero.data.postgres import (
                     ensure_tables,
                     insert_upload_record,
-                    upsert_health_data
+                    upsert_health_data,
+                    _POSTGRES_AVAILABLE,
                 )
+                if not _POSTGRES_AVAILABLE:
+                    st.warning(
+                        "⚙️ **PostgreSQL not configured.** "
+                        "Set POSTGRES_PASSWORD in your .env file and create the "
+                        "`aero_planner` database, then restart the app.",
+                        icon="🗄️",
+                    )
+                    st.stop()
 
                 famis_df = st.session_state['famis_data']
 
