@@ -274,47 +274,96 @@ def render():
     total_working_days_plus_training = courier_reqs.get('total_required_with_training', 0)
     final_delta = courier_reqs.get('final_delta', 0)
 
-    # NO DATA condition
-    no_data_flag = (total_packages == 0) or (couriers_available <= 0) or (total_working_days_plus_training <= 0) or (courier_required_with_absentism <= 0)
+    # NO DATA condition — only suppress display when there is literally zero volume.
+    # Calculated values (required couriers, delta) are meaningful even when
+    # couriers_available=0 (it just means a large deficit), so we must NOT hide them.
+    no_volume = (total_packages == 0)
+
+    # Individual metric visibility flags
+    _prod   = productivity_as_per_hrs
+    _req_p  = courier_required_as_per_productivity
+    _req_a  = courier_required_with_absentism
+    _total  = total_working_days_plus_training
+    _delta  = final_delta
+
+    # Helper: format a numeric value; show "—" only when no volume at all
+    def _fmt(v, decimals=0):
+        if no_volume:
+            return "—"
+        if decimals:
+            return f"{v:.{decimals}f}"
+        return str(int(round(v))) if isinstance(v, float) else str(v)
+
+    # Delta classification (surplus / balanced / deficit)
+    if no_volume:
+        _delta_label = ""
+        _delta_color = "normal"
+    elif _delta > 0:
+        _delta_label = "Surplus"
+        _delta_color = "normal"
+    elif _delta == 0:
+        _delta_label = "Balanced"
+        _delta_color = "off"
+    else:
+        _delta_label = "Deficit"
+        _delta_color = "inverse"
 
     # OUTPUT METRICS
     o1, o2, o3, o4, o5 = st.columns(5)
 
     with o1:
-        st.metric("Productivity as per hrs", "-" if no_data_flag else productivity_as_per_hrs)
+        st.metric("Productivity (hrs)", _fmt(_prod, 2))
     with o2:
-        st.metric("Courier required as per productivity", "-" if no_data_flag else courier_required_as_per_productivity)
+        st.metric("Required (Productivity)", _fmt(_req_p))
     with o3:
-        st.metric("Courier required with absentism", "-" if no_data_flag else courier_required_with_absentism)
+        st.metric("Required (+ Absenteeism)", _fmt(_req_a))
     with o4:
-        st.metric("Total working days + training", "-" if no_data_flag else total_working_days_plus_training)
+        st.metric("Required (+ Training)", _fmt(_total))
     with o5:
-        if no_data_flag:
-            st.metric("Delta", "⚪ NO DATA", delta="", delta_color="normal")
+        if no_volume:
+            st.metric("Delta", "—", delta="No volume", delta_color="normal")
         else:
-            delta_color = "normal" if final_delta >= 0 else "inverse"
-            st.metric("Delta", final_delta, delta=("Surplus" if final_delta >= 0 else "Deficit"), delta_color=delta_color)
+            st.metric(
+                "Delta",
+                _fmt(_delta),
+                delta=_delta_label,
+                delta_color=_delta_color,
+            )
 
-    # Summary card (compact)
-    _final_delta_display = f"{final_delta:.2f}" if not no_data_flag else "—"
+    # ── Summary card ────────────────────────────────────────────────────────
+    _avail_str    = str(couriers_available) if not no_volume else "—"
+    _req_str      = _fmt(_req_a)
+    _delta_str    = _fmt(_delta)
+
+    # Choose accent colour based on delta: green=surplus, amber=balanced, red=deficit
+    if no_volume:
+        _card_bg = "linear-gradient(135deg, #888 0%, #666 100%)"
+    elif _delta > 0:
+        _card_bg = "linear-gradient(135deg, #1E8449 0%, #27AE60 100%)"
+    elif _delta == 0:
+        _card_bg = "linear-gradient(135deg, #B7770D 0%, #D4AC0D 100%)"
+    else:
+        _card_bg = "linear-gradient(135deg, #FF6200 0%, #E45528 100%)"
+
     st.markdown(f"""
     <div style="
-        background: linear-gradient(135deg, #FF6200 0%, #E45528 100%);
+        background: {_card_bg};
         border-radius: 10px;
         padding: 0.6rem 1rem;
         margin: 0.8rem 0;
-        box-shadow: 0 2px 6px rgba(255, 98, 0, 0.18);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
     ">
         <div style="display: flex; justify-content: space-between; align-items: center; gap: 0.75rem; flex-wrap:wrap;">
             <div style="color: #FFFFFF;">
-                <div style="font-size: 11px; opacity: 0.95; text-transform: uppercase; letter-spacing: 0.4px;">Courier Summary</div>
+                <div style="font-size: 11px; opacity: 0.90; text-transform: uppercase; letter-spacing: 0.4px;">Courier Summary</div>
                 <div style="font-size: 18px; font-weight: 700; margin-top: 4px;">
-                    {('0' if couriers_available == 0 else couriers_available) if not no_data_flag else '—'} Available | {int(courier_required_with_absentism) if not no_data_flag else '—'} Required
+                    {_avail_str} Available &nbsp;|&nbsp; {_req_str} Required
                 </div>
             </div>
-            <div style="background: rgba(255,255,255,0.12); padding: 0.4rem 0.8rem; border-radius: 6px; min-width:64px; text-align:center;">
-                <div style="color: rgba(255,255,255,0.95); font-size: 11px;">Final Delta</div>
-                <div style="color: #FFFFFF; font-size: 18px; font-weight: 800;">{_final_delta_display}</div>
+            <div style="background: rgba(255,255,255,0.15); padding: 0.4rem 0.8rem; border-radius: 6px; min-width:72px; text-align:center;">
+                <div style="color: rgba(255,255,255,0.90); font-size: 11px; text-transform:uppercase; letter-spacing:0.3px;">Final Delta</div>
+                <div style="color: #FFFFFF; font-size: 22px; font-weight: 800;">{_delta_str}</div>
+                <div style="color: rgba(255,255,255,0.80); font-size: 10px;">{_delta_label if not no_volume else 'Upload volume'}</div>
             </div>
         </div>
     </div>

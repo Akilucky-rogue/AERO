@@ -24,8 +24,26 @@ def init_session_state() -> None:
     # ── Data / upload state (shared across health-monitor pages) ───────────
     if "last_upload_id" not in st.session_state:
         st.session_state["last_upload_id"] = None
-    if "famis_df" not in st.session_state:
+
+    # Primary FAMIS dataset (set by upload_centre, consumed by all planners)
+    if "famis_data" not in st.session_state:
+        st.session_state["famis_data"] = None
+    if "famis_data_raw" not in st.session_state:
+        st.session_state["famis_data_raw"] = None
+    if "famis_df" not in st.session_state:       # alias kept for legacy compat
         st.session_state["famis_df"] = None
+    if "famis_file_name" not in st.session_state:
+        st.session_state["famis_file_name"] = None
+    if "famis_file_id" not in st.session_state:
+        st.session_state["famis_file_id"] = None
+
+    # Facility Master (auto-loaded from FAMIS_META.xlsx on app start)
+    if "master_data" not in st.session_state:
+        st.session_state["master_data"] = None
+
+    # Upload registry snapshot (list of metadata dicts, drives visibility table)
+    if "famis_upload_registry" not in st.session_state:
+        st.session_state["famis_upload_registry"] = None
 
     # ── Planning state (shared across planner pages) ────────────────────────
     if "selected_station" not in st.session_state:
@@ -52,29 +70,6 @@ def init_session_state() -> None:
         st.session_state["hub_famis_file_type_saved"] = "Daily"
     if "hub_health_active_tab" not in st.session_state:
         st.session_state["hub_health_active_tab"] = "AREA"
-
-    # ── Services — Delay Prediction Engine ─────────────────────────────────
-    # svc_model      : built statistical model dict (None until trained)
-    # svc_model_meta : training metadata (filename, row count, date range, trained_at)
-    # svc_nsl_df     : parsed NSL DataFrame for current upload session
-    # svc_nsl_meta   : parse metadata for the NSL file
-    # svc_awb_df     : parsed daily AWB DataFrame
-    # svc_awb_meta   : parse metadata for the AWB file
-    # svc_pred_df    : prediction results DataFrame (last run)
-    if "svc_model" not in st.session_state:
-        st.session_state["svc_model"] = None
-    if "svc_model_meta" not in st.session_state:
-        st.session_state["svc_model_meta"] = None
-    if "svc_nsl_df" not in st.session_state:
-        st.session_state["svc_nsl_df"] = None
-    if "svc_nsl_meta" not in st.session_state:
-        st.session_state["svc_nsl_meta"] = None
-    if "svc_awb_df" not in st.session_state:
-        st.session_state["svc_awb_df"] = None
-    if "svc_awb_meta" not in st.session_state:
-        st.session_state["svc_awb_meta"] = None
-    if "svc_pred_df" not in st.session_state:
-        st.session_state["svc_pred_df"] = None
 
     # ── Services — Delay Prediction Engine ─────────────────────────────────
     # svc_model      : built statistical model dict (None until trained)

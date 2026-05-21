@@ -181,17 +181,32 @@ def render():
     famis_data = st.session_state.get('famis_data', None)
 
     if famis_data is not None and not famis_data.empty:
-        st.markdown("""
+        # ── Active FAMIS file banner ───────────────────────────────────────────
+        _fname    = st.session_state.get("famis_file_name") or "Uploaded file"
+        _ftype    = famis_data["file_type"].iloc[0] if "file_type" in famis_data.columns and len(famis_data) else "—"
+        _date_min = pd.to_datetime(famis_data["date"]).min().strftime("%d %b %Y") if "date" in famis_data.columns else "—"
+        _date_max = pd.to_datetime(famis_data["date"]).max().strftime("%d %b %Y") if "date" in famis_data.columns else "—"
+        _n_rows   = len(famis_data)
+        _n_sta    = famis_data["loc_id"].nunique() if "loc_id" in famis_data.columns else 0
+        st.markdown(f"""
         <div style="
-            background: linear-gradient(135deg, #FAFAFA 0%, #FFFFFF 100%);
-            border-left: 4px solid #4D148C;
+            background: linear-gradient(135deg, #FAFAFA 0%, #F0FFF4 100%);
+            border-left: 5px solid #1E8449;
             border-radius: 8px;
-            padding: 1rem 1.25rem;
-            margin: 0.5rem 0 1rem 0;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            padding: 0.75rem 1.1rem;
+            margin: 0.5rem 0 0.75rem 0;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+            display:flex; align-items:center; gap:12px; flex-wrap:wrap;
         ">
-            <span style="color: #4D148C; font-weight: 600;">✅ FAMIS Data Loaded</span>
-            <span style="color: #565656;"> — Select a station to auto-fill volumes (Gross Total, IB, OB, ROC)</span>
+            <span style="font-size:18px;">📂</span>
+            <div>
+                <div style="color:#1E8449;font-weight:700;font-size:13px;">Active FAMIS Dataset</div>
+                <div style="color:#333;font-size:12px;margin-top:2px;">
+                    <b>{_fname}</b> &nbsp;·&nbsp; {_ftype} &nbsp;·&nbsp;
+                    {_date_min} → {_date_max} &nbsp;·&nbsp;
+                    {_n_rows:,} rows &nbsp;·&nbsp; {_n_sta} stations
+                </div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 

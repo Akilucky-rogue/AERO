@@ -25,8 +25,9 @@ from aero import DATA_DIR
 
 logger = logging.getLogger(__name__)
 
-FAMIS_UPLOAD_PATH = os.path.join(DATA_DIR, "FAMIS_UPLOADED_FILES.xlsx")
-FAMIS_REPORT_PATH = os.path.join(DATA_DIR, "FAMIS_REPORT_DATA.xlsx")
+FAMIS_UPLOAD_PATH  = os.path.join(DATA_DIR, "FAMIS_UPLOADED_FILES.xlsx")
+FAMIS_REPORT_PATH  = os.path.join(DATA_DIR, "FAMIS_REPORT_DATA.xlsx")
+FAMIS_META_PATH    = os.path.join(DATA_DIR, "FAMIS_META.xlsx")
 
 # Characters that Excel interprets as formula starters
 _FORMULA_START_CHARS = frozenset("=+-@|%")
@@ -205,6 +206,97 @@ def _upsert_report_df(existing: pd.DataFrame, new: pd.DataFrame) -> pd.DataFrame
     merged = existing.merge(new[keys].drop_duplicates(), on=keys, how="left", indicator=True)
     keep = existing[merged["_merge"] == "left_only"].copy()
     return pd.concat([keep, new], ignore_index=True, sort=False)
+
+
+# ===================================================================
+# 3. FAMIS UPLOAD REGISTRY  (metadata per upload, not raw rows)
+# ===================================================================
+
+def upsert_famis_registry(metadata: dict) -> None:
+    """Append a single upload-metadata record to the FAMIS_REGISTRY sheet.
+
+    Expected keys in *metadata*:
+        filename   : str  — display name of the uploaded file
+        file_type  : str  — "Daily" | "Weekly" | "Monthly"
+        date_min   : str  — earliest date in the uploaded data (ISO format)
+        date_max   : str  — latest  date in the uploaded data (ISO format)
+        rows       : int  — number of rows uploaded
+        stations   : int  — number of distinct loc_ids in the upload
+        uploaded_at: str  — ISO datetime of upload
+
+    The registry sheet is append-only; each upload becomes a new row.
+    """
+    _ensure_dir()
+    metadata = {k: _sanitize_cell(v) for k, v in metadata.items()}
+    new_row = pd.DataFrame([metadata])
+
+    existing: pd.DataFrame
+    if os.path.exists(FAMIS_META_PATH):
+        try:
+            existing = pd.read_excel(FAMIS_META_PATH, sheet_name="FAMIS_REGISTRY")
+        except Exception as exc:
+            logger.warning("upsert_famis_registry: could not read existing registry: %s", exc)
+            existing = pd.DataFrame()
+    else:
+        existing = pd.DataFrame()
+
+    # Read the MASTER_DATA sheet as well so we can preserve it in the atomic write
+    master_df = _read_sheet_safe(FAMIS_META_PATH, "MASTER_DATA")
+
+    combined = pd.concat([existing, new_row], ignore_index=True, sort=False)
+    sheets: dict[str, pd.DataFrame] = {"FAMIS_REGISTRY": combined}
+    if not master_df.empty:
+        sheets["MASTER_DATA"] = master_df
+
+    _atomic_write(FAMIS_META_PATH, sheets)
+
+
+def read_famis_registry() -> pd.DataFrame:
+    """Return all FAMIS upload-metadata records, newest first."""
+    if not os.path.exists(FAMIS_META_PATH):
+        return pd.DataFrame()
+    df = _read_sheet_safe(FAMIS_META_PATH, "FAMIS_REGISTRY")
+    if not df.empty and "uploaded_at" in df.columns:
+        df = df.sort_values("uploaded_at", ascending=False).reset_index(drop=True)
+    return df
+
+
+# ===================================================================
+# 4. STATION MASTER PERSISTENCE
+# ===================================================================
+
+def upsert_master_data(df: pd.DataFrame) -> None:
+    """Persist the Facility Master DataFrame (replace-on-upload, not append).
+
+    The master is always replaced wholesale on each new upload so the
+    registry and the stored master stay in sync.
+    """
+    _ensure_dir()
+    registry_df = _read_sheet_safe(FAMIS_META_PATH, "FAMIS_REGISTRY")
+    sheets: dict[str, pd.DataFrame] = {"MASTER_DATA": df}
+    if not registry_df.empty:
+        sheets["FAMIS_REGISTRY"] = registry_df
+    _atomic_write(FAMIS_META_PATH, sheets)
+
+
+def read_master_data() -> pd.DataFrame:
+    """Load the last-uploaded Facility Master from FAMIS_META.xlsx."""
+    if not os.path.exists(FAMIS_META_PATH):
+        return pd.DataFrame()
+    return _read_sheet_safe(FAMIS_META_PATH, "MASTER_DATA")
+
+
+# ---------------------------------------------------------------------------
+# Internal helper
+# ---------------------------------------------------------------------------
+
+def _read_sheet_safe(path: str, sheet_name: str) -> pd.DataFrame:
+    """Read a single Excel sheet, returning an empty DataFrame on any error."""
+    try:
+        return pd.read_excel(path, sheet_name=sheet_name)
+    except Exception as exc:
+        logger.warning("_read_sheet_safe('%s', '%s'): %s", path, sheet_name, exc)
+        return pd.DataFrame()
 
 
 def _build_total_summary(area_df: pd.DataFrame, resource_df: pd.DataFrame, courier_df: pd.DataFrame) -> pd.DataFrame:
