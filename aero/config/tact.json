@@ -76,6 +76,13 @@
     "COURIER": {
         "COURIER_CAPACITY": 250,
         "STANDARD_PRODUCTIVITY": 45,
+        "PK_ST_OR": 2.5,
+        "ST_HR_OR": 4.0,
+        "PRODUCTIVITY_HRS": 7.0,
+        "ABSENTEEISM_PCT": 16.0,
+        "TRAINING_PCT": 11.0,
+        "WORKING_DAYS": 5,
+        "SHIFT_HOURS": 9.0,
         "COURIER_ONCALL_TACT": 1.0,
         "COURIER_ONCALL_PCT_TOTAL": 0.05
     }

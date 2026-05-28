@@ -156,19 +156,6 @@ elif role == "Gateway":
         ],
     }
 
-elif role == "Services":
-    pages = {
-        "HOME": [
-            st.Page("pages/home.py", title="Home", icon="🏠",
-                    url_path="home", default=True),
-        ],
-        "SERVICES": [
-            st.Page("frontend/services/operations.py",
-                    title="Services Operations", icon="🛠️",
-                    url_path="services-operations"),
-        ],
-    }
-
 elif role == "Leadership":
     pages = {
         "HOME": [
@@ -204,13 +191,10 @@ elif role == "Operations":
                     title="Station Analytics", icon="📊",
                     url_path="station-analytics"),
         ],
-        "GATEWAY & SERVICES": [
+        "GATEWAY": [
             st.Page("frontend/gateway/operations.py",
                     title="Gateway Operations", icon="✈️",
                     url_path="gateway-operations"),
-            st.Page("frontend/services/operations.py",
-                    title="Services Operations", icon="🛠️",
-                    url_path="services-operations"),
         ],
         "LEADERSHIP": [
             st.Page("frontend/leadership/dashboard.py",

@@ -174,8 +174,14 @@ def render():
                 # Update station identifiers so downstream master lookup also works
                 st.session_state.station_name = selected_famis_station
                 st.session_state['courier_famis_loc'] = selected_famis_station
-                # Force-update the couriers available widget to reflect master value
-                st.session_state['couriers_available'] = master_couriers_val
+
+                # ── Seed couriers_available ONLY when the station changes ─────────────
+                # Do NOT force-set on every rerun — that resets whatever the user typed.
+                _prev_cour_station = st.session_state.get('_courier_last_station', None)
+                if selected_famis_station != _prev_cour_station:
+                    st.session_state['couriers_available'] = master_couriers_val
+                    st.session_state['_courier_last_station'] = selected_famis_station
+                # ─────────────────────────────────────────────────────────────────────
 
                 st.success(f"📦 Auto-filled for **{selected_famis_station}**: EMP%={emp_reported_pct:.1f} | ST/CR OR={st_cr_or:.2f} | ST/HR OR={st_hr_or:.2f} | PK/ST={pk_st_or:.2f}")
 
@@ -210,10 +216,10 @@ def render():
     # ============================================
     # FAMIS COURIER METRICS
     # ============================================
-    default_productivity_hrs = float(famis_courier.get('productivity_hrs', 7.0)) if famis_courier.get('productivity_hrs') else 7.0
-    default_st_cr_or = float(famis_courier.get('st_cr_or', 0)) if famis_courier.get('st_cr_or') else 0.0
-    default_st_hr_or = float(famis_courier.get('st_hr_or', 0)) if famis_courier.get('st_hr_or') else 0.0
-    default_pk_st = float(famis_courier.get('pk_st_or', 0)) if famis_courier.get('pk_st_or') else 0.0
+    default_productivity_hrs = float(famis_courier.get('productivity_hrs') or _cour.get('PRODUCTIVITY_HRS', 7.0))
+    default_st_cr_or         = float(famis_courier.get('st_cr_or') or 0.0)
+    default_st_hr_or         = float(famis_courier.get('st_hr_or') or _cour.get('ST_HR_OR', 4.0))
+    default_pk_st            = float(famis_courier.get('pk_st_or') or _cour.get('PK_ST_OR', 2.5))
 
     with st.expander("⚙️ FAMIS Courier Metrics", expanded=False):
         fm1, fm2, fm3, fm4 = st.columns(4)
@@ -231,18 +237,17 @@ def render():
 
 
     with st.expander("🛣️ Route & Courier Details", expanded=True):
-        # Determine default 'couriers available' from Station Master if present
-        famis_master_couriers = st.session_state.get('courier_data_from_famis', {}).get('master_couriers', None)
-        default_couriers = famis_master_couriers if famis_master_couriers and famis_master_couriers > 0 else 0
-        master_df = st.session_state.get('master_data', None)
-        if default_couriers == 0 and master_df is not None and not master_df.empty:
-            cols = [c.lower() for c in master_df.columns]
-            for cand in ['current_total_couriers','couriers_available','existing_couriers']:
-                if cand in cols:
-                    default_couriers = int(master_df.iloc[0][master_df.columns[cols.index(cand)]] or 0)
-                    break
-
-        couriers_available = st.number_input("Couriers Available at the Station", min_value=0, step=1, value=st.session_state.get('couriers_available', default_couriers), key='couriers_available')
+        # The widget's session-state key 'couriers_available' is the single source of truth.
+        # It is seeded (once) when a station is first selected; after that the user's manual
+        # edits are preserved across reruns because we no longer force-overwrite it.
+        couriers_available = st.number_input(
+            "Couriers Available at the Station",
+            min_value=0,
+            step=1,
+            value=st.session_state.get('couriers_available', 0),
+            key='couriers_available',
+            help="Auto-filled from Facility Master when you select a station above. You can override this manually.",
+        )
 
         # MANPOWER ASSUMPTIONS
         absenteeism_pct = st.number_input("Absentism %", min_value=0.0, step=0.1, value=16.0, format="%.2f")
@@ -270,7 +275,7 @@ def render():
 
     productivity_as_per_hrs = courier_reqs.get('productivity_as_per_hrs', 0)
     courier_required_as_per_productivity = courier_reqs.get('courier_required_as_per_productivity', 0)
-    courier_required_with_absentism = courier_reqs.get('courier_required_with_standard', 0)
+    courier_required_with_absentism = courier_reqs.get('courier_required_with_absenteeism', 0)
     total_working_days_plus_training = courier_reqs.get('total_required_with_training', 0)
     final_delta = courier_reqs.get('final_delta', 0)
 
@@ -278,6 +283,25 @@ def render():
     # Calculated values (required couriers, delta) are meaningful even when
     # couriers_available=0 (it just means a large deficit), so we must NOT hide them.
     no_volume = (total_packages == 0)
+
+    if no_volume:
+        st.markdown("""
+        <div style="background:linear-gradient(135deg,#FFF8F0 0%,#FFFFFF 100%);
+            border-left:5px solid #FF6200;border-radius:10px;
+            padding:14px 18px;margin:10px 0 14px 0;
+            box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+            <div style="font-weight:800;color:#FF6200;font-size:13px;
+                text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">
+                💡 How to see courier calculations
+            </div>
+            <div style="color:#555;font-size:13px;line-height:1.65;">
+                Enter a <b>Total Packages</b> value above to activate all KPI metrics.<br>
+                <b>Suggested test values:</b> Packages=<b>500</b> | PK/ST OR=<b>2.5</b> |
+                ST/HR OR=<b>4.0</b> | Productivity Hrs=<b>7.0</b> | Couriers Available=<b>20</b>
+                → Expected: Productivity=<b>70</b> | Required=<b>8</b> |
+                With Absenteeism=<b>10</b> | Total=<b>12</b> | Delta=<b>+8 ✅ Surplus</b>
+            </div>
+        </div>""", unsafe_allow_html=True)
 
     # Individual metric visibility flags
     _prod   = productivity_as_per_hrs
