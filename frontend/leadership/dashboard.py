@@ -252,6 +252,22 @@ def _build_live_station_reports(famis_df: pd.DataFrame, master_df: pd.DataFrame)
         else:
             mrow = pd.Series()
 
+        # Resolve Region
+        region = str(mrow.get("region", "")) if not mrow.empty and "region" in mrow.index else ""
+        if not region or region.lower() in ("nan", "none", ""):
+            loc_upper = loc.upper()
+            if loc_upper.startswith("AMD") or loc_upper.startswith("BOM"):
+                region = "Western Region"
+            elif loc_upper.startswith("DEL"):
+                region = "Northern Region"
+            elif loc_upper.startswith("MAA") or loc_upper.startswith("BLR"):
+                region = "Southern Region"
+            elif loc_upper.startswith("CCU"):
+                region = "Eastern Region"
+            else:
+                prefix = loc.split("-")[0] if "-" in loc else loc[:3]
+                region = f"Operational Region {prefix}"
+
         ops_area = float(mrow.get("ops_area", 0) or 0) if not mrow.empty else 0.0
         m_agents = float(mrow.get("current_total_agents", mrow.get("current_total_osa", 0)) or 0) if not mrow.empty else 0.0
         m_couriers = int(mrow.get("current_total_couriers", mrow.get("couriers_available", 0)) or 0) if not mrow.empty else 0
@@ -334,24 +350,28 @@ def _build_live_station_reports(famis_df: pd.DataFrame, master_df: pd.DataFrame)
         area_rows.append({
             "DATE": dt_str,
             "LOC ID": loc,
+            "REGION": region,
             "VOLUME": vol,
             "STATUS": f"{area_emoji} {a_lbl} {area_dev:+.1f}%"
         })
         res_rows.append({
             "DATE": dt_str,
             "LOC ID": loc,
+            "REGION": region,
             "VOLUME": vol,
             "STATUS": f"{res_emoji} {r_lbl} {res_dev:+.1f}%"
         })
         cour_rows.append({
             "DATE": dt_str,
             "LOC ID": loc,
+            "REGION": region,
             "VOLUME": vol,
             "STATUS": f"{cour_emoji} {c_lbl} {cour_dev:+.1f}%"
         })
         total_rows.append({
             "DATE": dt_str,
             "LOC ID": loc,
+            "REGION": region,
             "VOLUME": vol,
             "AREA STATUS": f"{area_emoji} {a_lbl} {area_dev:+.1f}%",
             "RESOURCE STATUS": f"{res_emoji} {r_lbl} {res_dev:+.1f}%",
@@ -546,6 +566,144 @@ def _build_live_hub_reports(hub_famis_df: pd.DataFrame, hub_master_df: pd.DataFr
 
     return pd.DataFrame(area_rows), pd.DataFrame(res_rows), pd.DataFrame(cour_rows), pd.DataFrame(total_rows)
 
+def _ensure_region_column(df: pd.DataFrame, master_df: pd.DataFrame) -> pd.DataFrame:
+    """Ensure the DataFrame has a REGION column by looking up or mapping location IDs."""
+    if df.empty:
+        return df
+    df = df.copy()
+    if "REGION" in df.columns:
+        return df
+
+    regions = []
+    for loc in df["LOC ID"].astype(str):
+        region = ""
+        if master_df is not None and not master_df.empty and "loc_id" in master_df.columns:
+            mrows = master_df[master_df["loc_id"] == loc]
+            if not mrows.empty:
+                mrow = mrows.iloc[0]
+                region = str(mrow.get("region", "")) if "region" in mrow.index else ""
+
+        if not region or region.lower() in ("nan", "none", ""):
+            loc_upper = loc.upper()
+            if loc_upper.startswith("AMD") or loc_upper.startswith("BOM"):
+                region = "Western Region"
+            elif loc_upper.startswith("DEL"):
+                region = "Northern Region"
+            elif loc_upper.startswith("MAA") or loc_upper.startswith("BLR"):
+                region = "Southern Region"
+            elif loc_upper.startswith("CCU"):
+                region = "Eastern Region"
+            else:
+                prefix = loc.split("-")[0] if "-" in loc else loc[:3]
+                region = f"Operational Region {prefix}"
+        regions.append(region)
+
+    df["REGION"] = regions
+    return df
+
+def _render_region_analysis(area_df: pd.DataFrame, res_df: pd.DataFrame, cour_df: pd.DataFrame):
+    """Render a premium region-wise analysis and operational rollup for Station division."""
+    if area_df.empty:
+        st.info("No data available for Region-Wise Analysis.")
+        return
+
+    # Filter to latest date
+    latest_date = area_df["DATE"].max()
+    area_latest = area_df[area_df["DATE"] == latest_date]
+    res_latest = res_df[res_df["DATE"] == latest_date] if not res_df.empty else pd.DataFrame()
+    cour_latest = cour_df[cour_df["DATE"] == latest_date] if not cour_df.empty else pd.DataFrame()
+
+    region_records = []
+
+    # Group by region
+    import re
+    regions = sorted(area_latest["REGION"].unique())
+
+    for reg in regions:
+        reg_area = area_latest[area_latest["REGION"] == reg]
+        reg_res = res_latest[res_latest["LOC ID"].isin(reg_area["LOC ID"])] if not res_latest.empty else pd.DataFrame()
+        reg_cour = cour_latest[cour_latest["LOC ID"].isin(reg_area["LOC ID"])] if not cour_latest.empty else pd.DataFrame()
+
+        total_vol = 0
+        healthy_count = 0
+        critical_alerts = 0
+        courier_devs = []
+        area_devs = []
+
+        for loc in reg_area["LOC ID"].unique():
+            # Volume
+            vol_val = reg_area[reg_area["LOC ID"] == loc]["VOLUME"].values[0]
+            try:
+                vol_num = int(str(vol_val).replace(",", ""))
+            except Exception:
+                vol_num = 0
+            total_vol += vol_num
+
+            # Statuses
+            a_status = reg_area[reg_area["LOC ID"] == loc]["STATUS"].values[0] if loc in reg_area["LOC ID"].values else ""
+            r_status = reg_res[reg_res["LOC ID"] == loc]["STATUS"].values[0] if not reg_res.empty and loc in reg_res["LOC ID"].values else ""
+            c_status = reg_cour[reg_cour["LOC ID"] == loc]["STATUS"].values[0] if not reg_cour.empty and loc in reg_cour["LOC ID"].values else ""
+
+            is_a_crit = "CRIT" in str(a_status).upper() or "🚨" in str(a_status)
+            is_r_crit = "CRIT" in str(r_status).upper() or "🚨" in str(r_status)
+            is_c_crit = "CRIT" in str(c_status).upper() or "🚨" in str(c_status)
+
+            if is_a_crit: critical_alerts += 1
+            if is_r_crit: critical_alerts += 1
+            if is_c_crit: critical_alerts += 1
+
+            is_a_h = "HEALTH" in str(a_status).upper() or "✅" in str(a_status)
+            is_r_h = "HEALTH" in str(r_status).upper() or "✅" in str(r_status) or r_status == ""
+            is_c_h = "HEALTH" in str(c_status).upper() or "✅" in str(c_status) or c_status == ""
+
+            if is_a_h and is_r_h and is_c_h:
+                healthy_count += 1
+
+            # Deviations
+            def _get_dev(s):
+                m = re.search(r'([+-]?\d+\.?\d*)%', str(s))
+                return float(m.group(1)) if m else None
+
+            a_dev_val = _get_dev(a_status)
+            if a_dev_val is not None:
+                area_devs.append(a_dev_val)
+
+            c_dev_val = _get_dev(c_status)
+            if c_dev_val is not None:
+                courier_devs.append(c_dev_val)
+
+        n_stations = len(reg_area["LOC ID"].unique())
+        health_pct = round(healthy_count / n_stations * 100) if n_stations else 0
+        avg_area_dev = round(sum(area_devs) / len(area_devs), 1) if area_devs else 0.0
+        avg_cour_dev = round(sum(courier_devs) / len(courier_devs), 1) if courier_devs else 0.0
+
+        region_records.append({
+            "Region": reg,
+            "Active Stations": n_stations,
+            "Total Volume": total_vol,
+            "Network Health": health_pct,
+            "Avg Courier Dev": avg_cour_dev,
+            "Avg Area Dev": avg_area_dev,
+            "Critical Alerts": critical_alerts,
+        })
+
+    reg_df = pd.DataFrame(region_records)
+    
+    st.dataframe(
+        reg_df,
+        hide_index=True,
+        use_container_width=True,
+        column_config={
+            "Region": st.column_config.TextColumn("Operational Region", width="medium", help="Active logistics regions"),
+            "Active Stations": st.column_config.NumberColumn("Stations", help="Count of active station facilities"),
+            "Total Volume": st.column_config.NumberColumn("Total Volume", format="%d", help="Total outbound & inbound packages"),
+            "Network Health": st.column_config.ProgressColumn("Network Health %", min_value=0, max_value=100, format="%d%%", help="Fully healthy stations percentage"),
+            "Avg Courier Dev": st.column_config.NumberColumn("Avg Courier Dev %", format="%+1.1f%%", help="Calculated courier efficiency deviation"),
+            "Avg Area Dev": st.column_config.NumberColumn("Avg Area Dev %", format="%+1.1f%%", help="Calculated facility area utilization deviation"),
+            "Critical Alerts": st.column_config.NumberColumn("Alerts 🚨", help="Active high-priority critical alerts across all domains")
+        }
+    )
+
 # ── Load all report data ─────────────────────────────────────────────────────
 st_area  = read_report_sheet("AREA HEALTH SUMMARY")
 st_res   = read_report_sheet("RESOURCE HEALTH SUMMARY")
@@ -630,6 +788,15 @@ with tab_st:
         _status_bar("Area Health", st_area_sc, "#4D148C")
         _status_bar("Resource Health", st_res_sc, "#FF6200")
         _status_bar("Courier Health", st_cour_sc, "#DE002E")
+
+        # Region-Wise Analysis (STATION Only)
+        st.markdown("---")
+        _section_header("🗺️ Regional Operations Breakdown — Station", "Region-wise health, volume, and deviation breakdown for all station facilities")
+        _master_df_reg = read_master_data()
+        st_area = _ensure_region_column(st_area, _master_df_reg)
+        st_res = _ensure_region_column(st_res, _master_df_reg)
+        st_cour = _ensure_region_column(st_cour, _master_df_reg)
+        _render_region_analysis(st_area, st_res, st_cour)
 
 
 
