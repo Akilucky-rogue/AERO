@@ -43,15 +43,11 @@ if _role == "Leadership":
         unsafe_allow_html=True,
     )
 
-    c1, c2 = st.columns(2)
+    c1, _ = st.columns(2)
     render_module_card(c1, "🏢", "Station / Hub",
         "Health status reports published by Facility teams covering Area, Resource, and Courier "
         "monitoring with Healthy / Review / Critical classifications and volume trend charts.",
         accent=_PURPLE)
-    render_module_card(c2, "🛎️", "Services",
-        "SLA compliance, delay prediction, customer contact volume, and first-attempt delivery "
-        "rates across all service types and station divisions. (Phase 2 for dashboard view)",
-        accent="#7B241C")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
@@ -59,88 +55,14 @@ if _role == "Leadership":
         {"title": "Open Executive Dashboard",
          "description": "Select <b>Executive Dashboard</b> from the left navigation panel."},
         {"title": "Select Division Tab",
-         "description": "Choose from <b>STATION / HUB</b>, <b>GATEWAY</b>, or <b>SERVICES</b>. "
+         "description": "Choose from <b>STATION / HUB</b> or <b>GATEWAY</b>. "
                         "Each tab is independently scoped."},
         {"title": "Review the Report",
          "description": "Station / Hub data auto-populates from published Facility health reports. "
-                        "Gateway and Services tabs activate in Phase 2."},
+                        "Gateway tab activates in Phase 2."},
     ])
 
     render_footer("LEADERSHIP")
-    st.stop()
-
-
-# ════════════════════════════════════════════════════════════
-# SERVICES
-# ════════════════════════════════════════════════════════════
-if _role == "Services":
-    render_header(
-        "SERVICES OPERATIONS",
-        "Delay Prediction Engine | FedEx Planning & Engineering",
-        logo_height=80,
-        badge="SERVICES",
-    )
-
-    render_info_banner(
-        "Welcome to the Services Module",
-        "The Services module uses a <b>Bayesian delay prediction engine</b> trained on NSL "
-        "historical shipment data. Upload your NSL file to build the model, then score daily "
-        "AWB files to identify which packages are at risk of missing their SLA commit window.",
-        accent=_PURPLE,
-    )
-
-    c1, c2, c3, c4 = st.columns(4)
-    render_module_card(c1, "📥", "Training Data",
-        "Upload your IN SPAC NSL file (.txt / .csv / .xlsx) to parse and review historical "
-        "shipment performance before training.",
-        accent=_PURPLE)
-    render_module_card(c2, "🧠", "Model",
-        "View the trained network profile: fail rates by lane, hub, market, service type, "
-        "POF causes, and transit time distributions.",
-        accent="#1A5276")
-    render_module_card(c3, "🔮", "Daily Prediction",
-        "Upload today's AWB file to score every shipment. Results are colour-coded: "
-        "Critical / High Risk / At Risk / Passing with per-AWB drilldown.",
-        accent=_GREEN)
-    render_module_card(c4, "📋", "History",
-        "Browse and download all past prediction sessions stored as timestamped Excel sheets.",
-        accent=_ORANGE)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    render_step_guide([
-        {"title": "Prepare NSL File",
-         "description": "Export the <b>IN SPAC NSL</b> report as a tab-separated .txt file "
-                        "(or .csv / .xlsx). Required columns: "
-                        "<code>orig_loc_cd</code>, <code>dest_loc_cd</code>, <code>NSL_OT_VOL</code>."},
-        {"title": "Train the Model",
-         "description": "Go to <b>Services Operations → Training Data</b>, upload the NSL file, "
-                        "preview the parse stats, then click <b>Train Model</b>. "
-                        "The model persists across sessions — train once, predict daily."},
-        {"title": "Upload Daily AWB File",
-         "description": "Go to <b>Daily Prediction</b>, upload today's AWB extract "
-                        "(needs at least <code>orig_loc_cd</code> and <code>dest_loc_cd</code>), "
-                        "then click <b>Run Prediction</b>."},
-        {"title": "Review & Act",
-         "description": "Filter by risk level or market. Drilldown into individual AWBs for "
-                        "root-cause signals and recommended actions. Download results as CSV "
-                        "or save the session to History."},
-    ])
-
-    render_footer("SERVICES")
-    st.stop()
-
-
-# ════════════════════════════════════════════════════════════
-
-    st.markdown("""
-    <div style="background:#FFFBEB;border-left:4px solid #FFB800;border-radius:8px;
-        padding:14px 18px;font-size:13px;color:#7C4F00;">
-        <b>Coming in Phase 2</b> — Gateway Operations is currently in development.
-        Navigate to <b>Gateway Operations</b> in the sidebar to see the module preview.
-    </div>""", unsafe_allow_html=True)
-
-    render_footer("GATEWAY")
     st.stop()
 
 
@@ -158,7 +80,7 @@ if _role == "Operations":
     render_info_banner(
         "Operations Role — Full Access",
         "As an Operations user you have access to all AERO modules: Facility planning, "
-        "Hub planning, Gateway operations, Services delay prediction, and Leadership analytics. "
+        "Hub planning, and Leadership analytics. "
         "Use the left sidebar to navigate between modules.",
         accent=_PURPLE,
     )
@@ -179,14 +101,10 @@ if _role == "Operations":
 
     st.markdown("<br>", unsafe_allow_html=True)
 
-    c4, c5, c6 = st.columns(3)
-    render_module_card(c4, "🔮", "Services Operations",
-        "Bayesian delay prediction engine — train on NSL history, score daily AWB files, "
-        "identify at-risk shipments before they fail.", accent=_GREEN, gradient=True)
-    render_module_card(c5, "📊", "Analytics Overview",
-        "Cross-divisional executive analytics: Station/Hub health, Gateway metrics, "
-        "and Services SLA performance in one view.", accent=_ORANGE, gradient=True)
-    render_module_card(c6, "⚙️", "Admin Controls",
+    c4, c5 = st.columns(2)
+    render_module_card(c4, "📊", "Analytics Overview",
+        "Cross-divisional executive analytics: Station/Hub health and Gateway metrics in one view.", accent=_ORANGE, gradient=True)
+    render_module_card(c5, "⚙️", "Admin Controls",
         "Configure global thresholds, model parameters, and user settings that drive "
         "all calculations across the application.", accent=_PURPLE)
 

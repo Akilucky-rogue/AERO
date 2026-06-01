@@ -17,7 +17,7 @@ and verified. The application is now fully functional and ready for deployment.
 
 Current Status:
 ✓ Application running without errors
-✓ 5 test users created and ready for login
+✓ 3 test users created and ready for login
 ✓ All environment variables configured
 ✓ Database connection configured (PostgreSQL optional)
 ✓ Role-based access control fully implemented
@@ -33,7 +33,7 @@ WHAT WAS CREATED
    Size: ~2.5 KB
    Contains:
    - PostgreSQL connection details
-   - 5 pre-configured user seed entries
+   - 3 pre-configured user seed entries
    - Full documentation of all required variables
    
    Key Variables:
@@ -48,7 +48,7 @@ WHAT WAS CREATED
    ───────────────────────────────────────────────
    Location: data/ directory
    Format: Microsoft Excel spreadsheet
-   Contains: 5 user accounts with roles and bcrypt-hashed passwords
+   Contains: 3 user accounts with roles and bcrypt-hashed passwords
    
    Users Created:
    ┌─────────────────┬──────────────────┬────────────┐
@@ -56,8 +56,6 @@ WHAT WAS CREATED
    ├─────────────────┼──────────────────┼────────────┤
    │ admin           │ Administrator    │ Operations │
    │ facility_mgr    │ Facility Manager │ Facility   │
-   │ gateway_coord   │ Gateway Coord.   │ Gateway    │
-   │ services_lead   │ Services Lead    │ Services   │
    │ executive       │ Executive Lead   │ Leadership │
    └─────────────────┴──────────────────┴────────────┘
 
@@ -118,12 +116,10 @@ File:           data/AERO_USERS.xlsx
 Hashing:        bcrypt with per-user salt (work factor 12)
 Legacy Support: SHA-256 with automatic upgrade to bcrypt
 
-User Roles (5 types):
+User Roles (3 types):
 1. Facility     - Station & hub planning, area configuration
-2. Gateway      - Gateway operations only
-3. Services     - Services operations only
-4. Leadership   - Executive dashboards & analytics
-5. Operations   - Full system access (admin)
+2. Leadership   - Executive dashboards & analytics
+3. Operations   - Full system access (admin)
 
 CONFIGURATION FILES
 ──────────────────
@@ -295,21 +291,9 @@ Test Case 2: Login as Facility Manager
 ├─ User ID: facility_mgr
 ├─ Password: Facility@2024
 ├─ Expected: Station/Hub planning access only
-└─ Verify: Gateway/Services sections not visible
-
-Test Case 3: Login as Gateway Coordinator
-├─ User ID: gateway_coord
-├─ Password: Gateway@2024
-├─ Expected: Gateway operations only
 └─ Verify: Other sections blocked
 
-Test Case 4: Login as Services Lead
-├─ User ID: services_lead
-├─ Password: Services@2024
-├─ Expected: Services operations only
-└─ Verify: Other sections blocked
-
-Test Case 5: Login as Executive
+Test Case 3: Login as Executive
 ├─ User ID: executive
 ├─ Password: Leadership@2024
 ├─ Expected: Executive dashboard only
@@ -433,7 +417,7 @@ FINAL STATUS
 
 What's Working:
 ✓ Application running at http://localhost:8502
-✓ 5 test users created and functional
+✓ 3 test users created and functional
 ✓ All environment variables configured
 ✓ Role-based access control implemented
 ✓ Password hashing secured with bcrypt

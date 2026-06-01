@@ -19,10 +19,8 @@ Test Flow:
 1. Home page (complete overview)
 2. Facilities → Station planning
 3. Facilities → Hub planning  
-4. Gateway → Gateway operations
-5. Services → Services operations
-6. Analytics → Executive dashboard
-7. Admin → Configuration panel
+4. Analytics → Executive dashboard
+5. Admin → Configuration panel
 
 
 USER #2 - FACILITY PLANNER
@@ -39,18 +37,6 @@ Test Flow:
 3. Facilities → Hub planner
 4. Admin → Configuration (area parameters)
 
-
-USER #4 - SERVICES OPERATIONS
-─────────────────────────────
-User ID:     services_lead
-Password:    Services@2024
-Role:        Services
-Display:     Services Lead
-Access:      Services operations only
-
-Test Flow:
-1. Home page
-2. Services → Services operations
 
 
 USER #5 - EXECUTIVE/LEADERSHIP
@@ -70,18 +56,17 @@ Test Flow:
 ROLE CAPABILITIES MATRIX
 ===================================================================
 
-Feature                    │ Facility │ Services │ Leadership │ Operations
-────────────────────────────────────────────────────────────────────────────────────
-Home Page                  │    ✓     │    ✓     │     ✓      │     ✓
-Station Planning           │    ✓     │    ✗     │     ✗      │     ✓
-Hub Planning               │    ✓     │    ✗     │     ✗      │     ✓
-Area Planning              │    ✓     │    ✗     │     ✗      │     ✓
-Courier Planning           │    ✓     │    ✗     │     ✗      │     ✓
-Resource Planning          │    ✓     │    ✗     │     ✗      │     ✓
-Health Monitor             │    ✓     │    ✗     │     ✗      │     ✓
-Services Operations        │    ✗     │    ✓     │     ✗      │     ✓
-Executive Dashboard        │    ✗     │    ✗     │     ✓      │     ✓
-Admin Configuration        │    ✗     │    ✗     │     ✗      │     ✓
+Feature                    │ Facility │ Leadership │ Operations
+─────────────────────────────────────────────────────────────────
+Home Page                  │    ✓     │     ✓      │     ✓
+Station Planning           │    ✓     │     ✗      │     ✓
+Hub Planning               │    ✓     │     ✗      │     ✓
+Area Planning              │    ✓     │     ✗      │     ✓
+Courier Planning           │    ✓     │     ✗      │     ✓
+Resource Planning          │    ✓     │     ✗      │     ✓
+Health Monitor             │    ✓     │     ✗      │     ✓
+Executive Dashboard        │    ✗     │     ✓      │     ✓
+Admin Configuration        │    ✗     │     ✗      │     ✓
 
 
 ===================================================================
@@ -125,8 +110,6 @@ TESTING CHECKLIST
 
 □ Test Role-Based Access
   □ facility_mgr → Can access Facilities section
-  □ facility_mgr → Cannot access Gateway section
-  □ gateway_coord → Can only see Gateway operations
   □ executive → Can access Analytics
 
 □ Test Navigation
@@ -141,7 +124,7 @@ TESTING CHECKLIST
 
 □ Test Data Persistence
   □ Changes save to AERO_USERS.xlsx
-  □ User list in admin panel shows all 5 users
+  □ User list in admin panel shows all 3 users
   □ User properties match definitions
 
 
@@ -185,7 +168,6 @@ To add more users:
 
 Valid Role Values:
 - Facility (facility planning access)
-- Services (services operations)
 - Leadership (executive dashboards)
 - Operations (full access)
 

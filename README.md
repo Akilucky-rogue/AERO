@@ -11,8 +11,7 @@ AERO provides role-separated operational tooling for FedEx Planning & Engineerin
 | Role | What they see |
 |------|--------------|
 | **Field (Facility)** | Data Upload Centre · Station & Hub Planning · Station Analytics |
-| **Services** | Services Operations (Delay Prediction Engine) |
-| **Leadership** | Executive Dashboard (NSL Analytics, Station/Hub health) |
+| **Leadership** | Executive Dashboard (Station/Hub health) |
 | **Operations** | All modules |
 
 ---
@@ -40,7 +39,6 @@ Default admin credentials (set in `.env`):
 |------|----------|------|
 | `admin` | `Admin@123456` | Operations |
 | `facility_mgr` | `Facility@2024` | Facility |
-| `services_lead` | `Services@2024` | Services |
 | `executive` | `Leadership@2024` | Leadership |
 
 ---
@@ -80,8 +78,7 @@ pages/
   station_planner.py     — Station Planning Suite (Area / Resource / Courier)
   station_analytics.py   — Station Health Analytics & Drill-Down
   hub_planner.py         — Hub Planning Suite
-  services_ops.py        — Services Operations (Delay Predictor)
-  leadership_dashboard.py— Executive Dashboard (NSL Analytics)
+  leadership_dashboard.py— Executive Dashboard
   admin_controls.py      — System Configuration
   health_monitor.py      — Health Monitor renderer (used by hub page)
   area_planner.py        — Area planning renderer
@@ -112,7 +109,6 @@ aero/
     sidebar.py           — Sidebar animation CSS
     styles.py            — Global CSS variables and brand colours
     session.py           — Session state initialisation
-    nsl_tab.py           — NSL analytics tab renderer
 ```
 
 ---
@@ -123,10 +119,9 @@ aero/
 |------|--------------|---------|
 | FAMIS volume data | PostgreSQL `famis_data` | `data/FAMIS_UPLOADED_FILES.xlsx` |
 | Health reports | PostgreSQL `station_health` | `data/FAMIS_REPORT_DATA.xlsx` |
-| NSL shipments | PostgreSQL `nsl_shipments` | Local pickle cache `_nsl_cache.pkl` |
 | MD Scorecard | Local pickle `_scorecard_cache.pkl` | — |
 | File archives | `docs/famis/` · `docs/master/` | — |
-| Inbox auto-load | `aero/data/inbox/{famis,nsl,scorecard}/` | — |
+| Inbox auto-load | `aero/data/inbox/{famis,scorecard}/` | — |
 
 ---
 
@@ -163,7 +158,6 @@ Drop files into these folders and restart the app — data is auto-ingested:
 ```
 aero/data/inbox/
   famis/       ← FAMIS REPORT_WE_*.xlsx
-  nsl/         ← IN Outbound/Inbound *.txt / *.csv
   scorecard/   ← MD Scorecard *.xlsb
   processed/   ← auto-moved after ingestion
 ```

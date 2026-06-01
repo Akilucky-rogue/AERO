@@ -7,13 +7,13 @@ FedEx Facility Planning Platform — Streamlit Multi-Page Application
 
 ## 1. Project Overview
 
-AERO is an internal Streamlit web application for FedEx facility operations teams. It provides role-based access to health monitoring, area planning, resource staffing, and courier planning tools across Stations, Hubs, and Service centers.
+AERO is an internal Streamlit web application for FedEx facility operations teams. It provides role-based access to health monitoring, area planning, resource staffing, and courier planning tools across Stations and Hubs.
 
 ### Purpose
 - Automate FAMIS (data) ingestion and health scoring for stations and hubs
 - Calculate area, resource, and courier requirements from business formulas
 - Provide Leadership with a consolidated eagle's-eye analytics view
-- Enable Operations teams to access all three division tools in one login
+- Enable Operations teams to access both division tools in one login
 
 ---
 
@@ -72,7 +72,6 @@ AERO-main/
 │   ├── hub_area_planner.py          # Hub area tracker [NEW]
 │   ├── hub_resource_planner.py      # Hub resource tracker (bridges to station) [NEW]
 │   ├── hub_courier_planner.py       # Hub courier tracker (bridges to station) [NEW]
-│   ├── services_ops.py              # Services Operations (placeholder — Phase 2)
 │   ├── leadership_dashboard.py      # Executive analytics dashboard [REWRITTEN]
 │   └── health_monitor.py            # (also covers station_planner sub-tab)
 │
@@ -102,9 +101,8 @@ AERO-main/
 | Role | Pages | Purpose |
 |------|-------|---------|
 | **Facility** | Home, Station Planner, Hub Planner, Admin Config | Day-to-day facility operations team |
-| **Services** | Home, Services Operations | Services team (Phase 2) |
-| **Leadership** | Home, Executive Dashboard | Eagle's-eye analytics across all divisions |
-| **Operations** | Home, Station, Hub, Services, Analytics | Cross-division oversight role [NEW] |
+| **Leadership** | Home, Executive Dashboard | Executive analytics overview of Station / Hub health |
+| **Operations** | Home, Station, Hub, Analytics | Cross-functional oversight role [NEW] |
 
 Roles are stored in `VALID_ROLES` in `aero/auth/service.py`.
 
@@ -290,8 +288,6 @@ Run tests:
 
 | Page | Status | Notes |
 |------|--------|-------|
-| `pages/services_ops.py` | Placeholder | Services SLA analytics pending |
-| Leadership Dashboard — Services section | Placeholder metrics | Shows Phase 2 integration banner |
 
 ---
 
@@ -301,7 +297,7 @@ Run tests:
 
 1. ✅ **Hub Parity** — Created `hub_store.py`, `hub_health_monitor.py`, `hub_area_planner.py`, `hub_resource_planner.py`, `hub_courier_planner.py`; updated `hub_planner.py` to use all 4 tabs
 2. ✅ **Leadership Dashboard** — Full rewrite with live KPI cards, Station+Hub status distribution, volume trends, Services Phase 2 placeholders
-3. ✅ **Operations Role** — Added to `VALID_ROLES`, routed in `main.py` with Station+Hub+Services+Analytics access
+3. ✅ **Operations Role** — Added to `VALID_ROLES`, routed in `main.py` with Station+Hub+Analytics access
 4. ✅ **FedEx Sans Arabic Font** — Base64 font injected via CSS `@font-face` in `styles.py`; `--font-sans` and `--font-head` updated
 5. ✅ **Session State** — Hub keys added to `init_session_state()` in `session.py`
 6. ✅ **Context** — This file

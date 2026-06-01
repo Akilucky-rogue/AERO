@@ -2,7 +2,7 @@
 AERO Authentication Service.
 
 Manages user authentication against an Excel-based credential store.
-Supports five roles: Facility, Gateway, Services, Leadership, Operations.
+Supports three roles: Facility, Leadership, Operations.
 
 Security notes
 --------------
@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 USERS_DB_PATH = os.path.join(DATA_DIR, "AERO_USERS.xlsx")
 
-VALID_ROLES: set[str] = {"Facility", "Services", "Leadership", "Operations"}
+VALID_ROLES: set[str] = {"Facility", "Leadership", "Operations"}
 
 
 # ---------------------------------------------------------------------------

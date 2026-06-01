@@ -71,33 +71,3 @@ def init_session_state() -> None:
     if "hub_health_active_tab" not in st.session_state:
         st.session_state["hub_health_active_tab"] = "AREA"
 
-    # ── Services — Delay Prediction Engine ─────────────────────────────────
-    # svc_model      : built statistical model dict (None until trained)
-    # svc_model_meta : training metadata (filename, row count, date range, trained_at)
-    # svc_nsl_df     : parsed NSL DataFrame for current upload session
-    # svc_nsl_meta   : parse metadata for the NSL file
-    # svc_awb_df     : parsed daily AWB DataFrame
-    # svc_awb_meta   : parse metadata for the AWB file
-    # svc_pred_df    : prediction results DataFrame (last run)
-    if "svc_model" not in st.session_state:
-        st.session_state["svc_model"] = None
-    if "svc_model_meta" not in st.session_state:
-        st.session_state["svc_model_meta"] = None
-    if "svc_nsl_df" not in st.session_state:
-        st.session_state["svc_nsl_df"] = None
-    if "svc_nsl_meta" not in st.session_state:
-        st.session_state["svc_nsl_meta"] = None
-    if "svc_awb_df" not in st.session_state:
-        st.session_state["svc_awb_df"] = None
-    if "svc_awb_meta" not in st.session_state:
-        st.session_state["svc_awb_meta"] = None
-    if "svc_pred_df" not in st.session_state:
-        st.session_state["svc_pred_df"] = None
-    # NSL Analytics persistent state (Leadership dashboard)
-    if "nsl_df" not in st.session_state:
-        st.session_state["nsl_df"] = None
-    if "nsl_filename" not in st.session_state:
-        st.session_state["nsl_filename"] = None
-    if "nsl_file_id" not in st.session_state:
-        st.session_state["nsl_file_id"] = None
-

@@ -23,7 +23,7 @@ and ready for login with pre-configured user accounts.
    
    Contents:
    ✓ PostgreSQL Database Configuration
-   ✓ 4 Pre-configured User Accounts (seeds)
+   ✓ 3 Pre-configured User Accounts (seeds)
    ✓ Documented all required environment variables
    
    Key Variables Set:
@@ -40,14 +40,13 @@ and ready for login with pre-configured user accounts.
 
    File Created: data/AERO_USERS.xlsx
    
-   Users Created (4 total):
+   Users Created (3 total):
    
    ┌─────────────────────────────────────────────────────────────┐
    │ User ID        │ Display Name       │ Role       │ Active  │
    ├─────────────────────────────────────────────────────────────┤
    │ admin          │ Administrator      │ Operations │ Yes     │
    │ facility_mgr   │ Facility Manager   │ Facility   │ Yes     │
-   │ services_lead  │ Services Lead      │ Services   │ Yes     │
    │ executive      │ Executive Lead     │ Leadership │ Yes     │
    └─────────────────────────────────────────────────────────────┘
    
@@ -80,7 +79,7 @@ and ready for login with pre-configured user accounts.
 
 ## SUPPORTED ROLES & ACCESS LEVELS
 
-The AERO application supports 4 distinct roles:
+The AERO application supports 3 distinct roles:
 
 1. FACILITY ROLE
    - Station & Hub facility planning
@@ -88,20 +87,14 @@ The AERO application supports 4 distinct roles:
    - Resource allocation
    - Navigation: Facilities > Station, Hub; Admin > Configuration
 
-2. SERVICES ROLE
-   - Services operations management
-   - Maintenance and support coordination
-   - Navigation: Services > Services Operations
-
-3. LEADERSHIP ROLE
+2. LEADERSHIP ROLE
    - Executive dashboards and analytics
    - Organization-wide insights
    - KPI monitoring
    - Navigation: Leadership > Executive Dashboard
 
-4. OPERATIONS ROLE (Full Access)
+3. OPERATIONS ROLE (Full Access)
    - All facilities + station/hub planning
-   - Services operations
    - Analytics and dashboards
    - Admin configuration panel
    - Navigation: All sections available
@@ -122,10 +115,6 @@ Test Credentials (Can be used immediately):
 │ Test User: facility_mgr                       │
 │ Password: Facility@2024                       │
 │ Role: Facility (Planning & Configuration)     │
-│                                               │
-│ Test User: services_lead                      │
-│ Password: Services@2024                       │
-│ Role: Services (Services Operations)          │
 │                                               │
 │ Test User: executive                          │
 │ Password: Leadership@2024                     │
@@ -332,13 +321,13 @@ Testing:
 ## FINAL CHECKLIST
 
 ✓ .env file created with all required variables
-✓ 4 test users created in AERO_USERS.xlsx
+✓ 3 test users created in AERO_USERS.xlsx
 ✓ PostgreSQL configuration set (with placeholder password)
 ✓ setup_users.py utility created for future user management
 ✓ Config JSON files verified (tact.json, area.json)
 ✓ Application started successfully without errors
 ✓ Login page accessible and ready for user input
-✓ Role-based navigation prepared for all 4 user roles
+✓ Role-based navigation prepared for all 3 user roles
 
 STATUS: ✅ PRODUCTION READY FOR TESTING
 
