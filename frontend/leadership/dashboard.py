@@ -631,18 +631,7 @@ with tab_st:
         _status_bar("Resource Health", st_res_sc, "#FF6200")
         _status_bar("Courier Health", st_cour_sc, "#DE002E")
 
-        # Volume Trend
-        if not st_total.empty and "DATE" in st_total.columns:
-            vol_col = next(
-                (c for c in st_total.columns
-                 if any(k in c.lower() for k in ("volume", "gross", "packs"))), None
-            )
-            if vol_col:
-                st.markdown("---")
-                _section_header("Volume Trend — Station", "Station package volume over time")
-                trend = st_total.groupby("DATE")[vol_col].sum().reset_index()
-                trend.sort_values("DATE", inplace=True)
-                st.line_chart(trend.set_index("DATE")[vol_col])
+
 
         # Critical Station Locations
         if not st_area.empty and "STATUS" in st_area.columns and "LOC ID" in st_area.columns:
