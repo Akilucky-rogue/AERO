@@ -68,7 +68,7 @@ def _db_status() -> dict:
 # ── Page ──────────────────────────────────────────────────────────────────────
 render_header(
     "OPERATIONS OVERVIEW",
-    "Enterprise-Wide Visibility — Field · Gateway · Services · System",
+    "Enterprise-Wide Visibility — Field · Services · System",
     logo_height=80,
     badge="ADMIN",
 )
@@ -218,23 +218,10 @@ st.markdown("<br>", unsafe_allow_html=True)
 st.markdown("""
 <div style="font-weight:700;color:#4D148C;font-size:14px;text-transform:uppercase;
     letter-spacing:0.8px;border-bottom:2px solid #4D148C;padding-bottom:6px;margin-bottom:14px;">
-    Gateway & Services
+    Services Operations
 </div>""", unsafe_allow_html=True)
 
-gs1, gs2 = st.columns(2)
-with gs1:
-    st.markdown("""
-<div style="border:2px solid #1A5276;border-radius:10px;padding:14px 18px;background:#f0f4f8;">
-    <div style="font-size:13px;font-weight:800;color:#1A5276;">✈️  GATEWAY OPERATIONS</div>
-    <div style="margin-top:8px;font-size:12px;color:#555;">
-        Cross-dock throughput monitoring, hub connectivity analytics, and sort-plan
-        adherence tracking. <br><br>
-        <span style="background:#FFB800;color:#fff;border-radius:4px;padding:2px 8px;
-        font-size:11px;font-weight:700;">Phase 2 — Upcoming</span>
-    </div>
-</div>""", unsafe_allow_html=True)
-with gs2:
-    st.markdown("""
+st.markdown("""
 <div style="border:2px solid #145A32;border-radius:10px;padding:14px 18px;background:#f0f8f4;">
     <div style="font-size:13px;font-weight:800;color:#145A32;">🛎️  SERVICES OPERATIONS</div>
     <div style="margin-top:8px;font-size:12px;color:#555;">

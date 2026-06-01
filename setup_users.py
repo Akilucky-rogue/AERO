@@ -27,7 +27,7 @@ def main():
     # Load environment variables from .env
     load_dotenv()
     
-    print("\n✓ Loading environment variables from .env file...")
+    print("\n[INFO] Loading environment variables from .env file...")
     
     # Get the credential seeding data
     seed_count = 0
@@ -44,11 +44,11 @@ def main():
             print(f"      Display Name: {name}")
     
     if seed_count == 0:
-        print("\n✗ No users found in .env file!")
+        print("\n[ERROR] No users found in .env file!")
         print("  Please set AERO_SEED_USER_1_ID, AERO_SEED_USER_1_PASS, AERO_SEED_USER_1_ROLE")
         return False
     
-    print(f"\n✓ Found {seed_count} user(s) to seed")
+    print(f"\n[INFO] Found {seed_count} user(s) to seed")
     
     # Call seed_users() which creates AERO_USERS.xlsx
     print("\nGenerating credentials file...")
@@ -58,9 +58,9 @@ def main():
     users_file = os.path.join(data_dir, "AERO_USERS.xlsx")
     
     if os.path.exists(users_file):
-        print(f"\n✓ SUCCESS: User credentials file created at:")
+        print(f"\n[SUCCESS] SUCCESS: User credentials file created at:")
         print(f"  {users_file}")
-        print(f"\n✓ {seed_count} user(s) created with bcrypt-hashed passwords")
+        print(f"\n[SUCCESS] {seed_count} user(s) created with bcrypt-hashed passwords")
         print("\nYou can now login to the application with:")
         for n in range(1, seed_count + 1):
             uid = os.getenv(f"AERO_SEED_USER_{n}_ID", "").strip()
@@ -68,7 +68,7 @@ def main():
                 print(f"  • User ID: {uid}")
         return True
     else:
-        print(f"\n✗ FAILED: Could not create {users_file}")
+        print(f"\n[ERROR] FAILED: Could not create {users_file}")
         return False
 
 if __name__ == "__main__":

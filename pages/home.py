@@ -43,16 +43,12 @@ if _role == "Leadership":
         unsafe_allow_html=True,
     )
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2 = st.columns(2)
     render_module_card(c1, "🏢", "Station / Hub",
         "Health status reports published by Facility teams covering Area, Resource, and Courier "
         "monitoring with Healthy / Review / Critical classifications and volume trend charts.",
         accent=_PURPLE)
-    render_module_card(c2, "✈️", "Gateway",
-        "Inter-hub linehaul and air gateway performance metrics. Covers on-time departure, "
-        "linehaul utilisation, cross-dock efficiency, and route-level benchmarks. (Phase 2)",
-        accent="#1A5276")
-    render_module_card(c3, "🛎️", "Services",
+    render_module_card(c2, "🛎️", "Services",
         "SLA compliance, delay prediction, customer contact volume, and first-attempt delivery "
         "rates across all service types and station divisions. (Phase 2 for dashboard view)",
         accent="#7B241C")
@@ -136,36 +132,6 @@ if _role == "Services":
 
 
 # ════════════════════════════════════════════════════════════
-# GATEWAY
-# ════════════════════════════════════════════════════════════
-if _role == "Gateway":
-    render_header(
-        "GATEWAY OPERATIONS",
-        "Cross-dock & Hub Connectivity | FedEx Planning & Engineering",
-        logo_height=80,
-        badge="GATEWAY",
-    )
-
-    render_info_banner(
-        "Gateway Module — Phase 2",
-        "The Gateway module will provide inter-hub linehaul analytics, sort-plan adherence "
-        "tracking, cross-dock throughput monitoring, and volume balancing recommendations. "
-        "Full integration is planned for Phase 2.",
-        accent=_ORANGE,
-    )
-
-    c1, c2, c3 = st.columns(3)
-    render_module_card(c1, "📦", "Sort-Plan Adherence",
-        "Real-time sort accuracy and misroute tracking across gateway lanes. "
-        "Shift-over-shift comparison view.", accent=_PURPLE)
-    render_module_card(c2, "📊", "Throughput Analytics",
-        "Packages-per-hour dashboards with volume trend charts and exception flagging "
-        "by sort lane and gateway station.", accent="#1A5276")
-    render_module_card(c3, "🔄", "Volume Balancing",
-        "Inter-facility load redistribution recommendations powered by FAMIS data. "
-        "Identify over/under-utilised gateways at a glance.", accent=_GREEN)
-
-    st.markdown("<br>", unsafe_allow_html=True)
 
     st.markdown("""
     <div style="background:#FFFBEB;border-left:4px solid #FFB800;border-radius:8px;
@@ -203,16 +169,13 @@ if _role == "Operations":
         unsafe_allow_html=True,
     )
 
-    c1, c2, c3 = st.columns(3)
+    c1, c2 = st.columns(2)
     render_module_card(c1, "🏢", "Station Planner",
         "Area, resource, and courier planning for individual station facilities. "
         "Upload FAMIS data and calculate health status.", accent=_PURPLE)
     render_module_card(c2, "🏭", "Hub Planner",
         "Health monitoring and capacity planning for hub-level operations. "
         "Mirrors Station Planner with hub-specific models.", accent=_PURPLE)
-    render_module_card(c3, "✈️", "Gateway Operations",
-        "Cross-dock throughput monitoring, sort-plan adherence, and volume balancing. "
-        "(Phase 2)", accent="#1A5276")
 
     st.markdown("<br>", unsafe_allow_html=True)
 

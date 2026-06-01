@@ -11,7 +11,6 @@ AERO provides role-separated operational tooling for FedEx Planning & Engineerin
 | Role | What they see |
 |------|--------------|
 | **Field (Facility)** | Data Upload Centre · Station & Hub Planning · Station Analytics |
-| **Gateway** | Gateway Operations |
 | **Services** | Services Operations (Delay Prediction Engine) |
 | **Leadership** | Executive Dashboard (NSL Analytics, Station/Hub health) |
 | **Operations** | All modules |
@@ -41,7 +40,6 @@ Default admin credentials (set in `.env`):
 |------|----------|------|
 | `admin` | `Admin@123456` | Operations |
 | `facility_mgr` | `Facility@2024` | Facility |
-| `gateway_coord` | `Gateway@2024` | Gateway |
 | `services_lead` | `Services@2024` | Services |
 | `executive` | `Leadership@2024` | Leadership |
 
@@ -82,7 +80,6 @@ pages/
   station_planner.py     — Station Planning Suite (Area / Resource / Courier)
   station_analytics.py   — Station Health Analytics & Drill-Down
   hub_planner.py         — Hub Planning Suite
-  gateway_ops.py         — Gateway Operations (Phase 2)
   services_ops.py        — Services Operations (Delay Predictor)
   leadership_dashboard.py— Executive Dashboard (NSL Analytics)
   admin_controls.py      — System Configuration

@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 USERS_DB_PATH = os.path.join(DATA_DIR, "AERO_USERS.xlsx")
 
-VALID_ROLES: set[str] = {"Facility", "Gateway", "Services", "Leadership", "Operations"}
+VALID_ROLES: set[str] = {"Facility", "Services", "Leadership", "Operations"}
 
 
 # ---------------------------------------------------------------------------

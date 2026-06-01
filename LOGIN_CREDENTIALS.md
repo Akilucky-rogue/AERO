@@ -40,19 +40,6 @@ Test Flow:
 4. Admin → Configuration (area parameters)
 
 
-USER #3 - GATEWAY COORDINATOR
-─────────────────────────────
-User ID:     gateway_coord
-Password:    Gateway@2024
-Role:        Gateway
-Display:     Gateway Coordinator
-Access:      Gateway operations only
-
-Test Flow:
-1. Home page
-2. Gateway → Gateway operations
-
-
 USER #4 - SERVICES OPERATIONS
 ─────────────────────────────
 User ID:     services_lead
@@ -83,19 +70,18 @@ Test Flow:
 ROLE CAPABILITIES MATRIX
 ===================================================================
 
-Feature                    │ Facility │ Gateway │ Services │ Leadership │ Operations
+Feature                    │ Facility │ Services │ Leadership │ Operations
 ────────────────────────────────────────────────────────────────────────────────────
-Home Page                  │    ✓     │    ✓    │    ✓     │     ✓      │     ✓
-Station Planning           │    ✓     │    ✗    │    ✗     │     ✗      │     ✓
-Hub Planning               │    ✓     │    ✗    │    ✗     │     ✗      │     ✓
-Area Planning              │    ✓     │    ✗    │    ✗     │     ✗      │     ✓
-Courier Planning           │    ✓     │    ✗    │    ✗     │     ✗      │     ✓
-Resource Planning          │    ✓     │    ✗    │    ✗     │     ✗      │     ✓
-Health Monitor             │    ✓     │    ✗    │    ✗     │     ✗      │     ✓
-Gateway Operations         │    ✗     │    ✓    │    ✗     │     ✗      │     ✓
-Services Operations        │    ✗     │    ✗    │    ✓     │     ✗      │     ✓
-Executive Dashboard        │    ✗     │    ✗    │    ✗     │     ✓      │     ✓
-Admin Configuration        │    ✗     │    ✗    │    ✗     │     ✗      │     ✓
+Home Page                  │    ✓     │    ✓     │     ✓      │     ✓
+Station Planning           │    ✓     │    ✗     │     ✗      │     ✓
+Hub Planning               │    ✓     │    ✗     │     ✗      │     ✓
+Area Planning              │    ✓     │    ✗     │     ✗      │     ✓
+Courier Planning           │    ✓     │    ✗     │     ✗      │     ✓
+Resource Planning          │    ✓     │    ✗     │     ✗      │     ✓
+Health Monitor             │    ✓     │    ✗     │     ✗      │     ✓
+Services Operations        │    ✗     │    ✓     │     ✗      │     ✓
+Executive Dashboard        │    ✗     │    ✗     │     ✓      │     ✓
+Admin Configuration        │    ✗     │    ✗     │     ✗      │     ✓
 
 
 ===================================================================
@@ -199,7 +185,6 @@ To add more users:
 
 Valid Role Values:
 - Facility (facility planning access)
-- Gateway (gateway operations)
 - Services (services operations)
 - Leadership (executive dashboards)
 - Operations (full access)

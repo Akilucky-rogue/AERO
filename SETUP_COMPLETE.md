@@ -23,7 +23,7 @@ and ready for login with pre-configured user accounts.
    
    Contents:
    ✓ PostgreSQL Database Configuration
-   ✓ 5 Pre-configured User Accounts (seeds)
+   ✓ 4 Pre-configured User Accounts (seeds)
    ✓ Documented all required environment variables
    
    Key Variables Set:
@@ -40,14 +40,13 @@ and ready for login with pre-configured user accounts.
 
    File Created: data/AERO_USERS.xlsx
    
-   Users Created (5 total):
+   Users Created (4 total):
    
    ┌─────────────────────────────────────────────────────────────┐
    │ User ID        │ Display Name       │ Role       │ Active  │
    ├─────────────────────────────────────────────────────────────┤
    │ admin          │ Administrator      │ Operations │ Yes     │
    │ facility_mgr   │ Facility Manager   │ Facility   │ Yes     │
-   │ gateway_coord  │ Gateway Coordinator│ Gateway    │ Yes     │
    │ services_lead  │ Services Lead      │ Services   │ Yes     │
    │ executive      │ Executive Lead     │ Leadership │ Yes     │
    └─────────────────────────────────────────────────────────────┘
@@ -81,7 +80,7 @@ and ready for login with pre-configured user accounts.
 
 ## SUPPORTED ROLES & ACCESS LEVELS
 
-The AERO application supports 5 distinct roles:
+The AERO application supports 4 distinct roles:
 
 1. FACILITY ROLE
    - Station & Hub facility planning
@@ -89,25 +88,19 @@ The AERO application supports 5 distinct roles:
    - Resource allocation
    - Navigation: Facilities > Station, Hub; Admin > Configuration
 
-2. GATEWAY ROLE
-   - Gateway operations management
-   - Cross-facility coordination
-   - Navigation: Gateway > Gateway Operations
-
-3. SERVICES ROLE
+2. SERVICES ROLE
    - Services operations management
    - Maintenance and support coordination
    - Navigation: Services > Services Operations
 
-4. LEADERSHIP ROLE
+3. LEADERSHIP ROLE
    - Executive dashboards and analytics
    - Organization-wide insights
    - KPI monitoring
    - Navigation: Leadership > Executive Dashboard
 
-5. OPERATIONS ROLE (Full Access)
+4. OPERATIONS ROLE (Full Access)
    - All facilities + station/hub planning
-   - Gateway operations
    - Services operations
    - Analytics and dashboards
    - Admin configuration panel
@@ -129,10 +122,6 @@ Test Credentials (Can be used immediately):
 │ Test User: facility_mgr                       │
 │ Password: Facility@2024                       │
 │ Role: Facility (Planning & Configuration)     │
-│                                               │
-│ Test User: gateway_coord                      │
-│ Password: Gateway@2024                        │
-│ Role: Gateway (Gateway Operations)            │
 │                                               │
 │ Test User: services_lead                      │
 │ Password: Services@2024                       │
@@ -343,13 +332,13 @@ Testing:
 ## FINAL CHECKLIST
 
 ✓ .env file created with all required variables
-✓ 5 test users created in AERO_USERS.xlsx
+✓ 4 test users created in AERO_USERS.xlsx
 ✓ PostgreSQL configuration set (with placeholder password)
 ✓ setup_users.py utility created for future user management
 ✓ Config JSON files verified (tact.json, area.json)
 ✓ Application started successfully without errors
 ✓ Login page accessible and ready for user input
-✓ Role-based navigation prepared for all 5 user roles
+✓ Role-based navigation prepared for all 4 user roles
 
 STATUS: ✅ PRODUCTION READY FOR TESTING
 
