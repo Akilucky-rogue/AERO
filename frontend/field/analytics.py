@@ -512,41 +512,9 @@ for i, reg in enumerate(reg_list):
 # [C] DOMAIN HEALTH CHARTS
 # ════════════════════════════════════════════════════════════════════════════
 st.markdown("<br>", unsafe_allow_html=True)
-_sec("📐👥🚚 Domain Health — Area · Resource · Courier")
 
 if not day_h.empty:
-    dc1, dc2, dc3 = st.columns(3)
-
-    for col_idx, (dom_col, dom_label, dom_icon) in enumerate([
-        ("area_status",     "Area",     "📐"),
-        ("resource_status", "Resource", "👥"),
-        ("courier_status",  "Courier",  "🚚"),
-    ]):
-        counts = {s: _cnt(day_h, dom_col, s)
-                  for s in ["HEALTHY", "REVIEW_NEEDED", "CRITICAL", "PROJECTED"]}
-        fig = go.Figure(go.Bar(
-            x=["Healthy", "Review", "Critical", "Projected"],
-            y=[counts["HEALTHY"], counts["REVIEW_NEEDED"], counts["CRITICAL"], counts["PROJECTED"]],
-            marker_color=[_SC["HEALTHY"], _SC["REVIEW_NEEDED"], _SC["CRITICAL"], _SC["PROJECTED"]],
-            text=[counts["HEALTHY"], counts["REVIEW_NEEDED"], counts["CRITICAL"], counts["PROJECTED"]],
-            textposition="outside",
-            textfont=dict(size=12, color="#333"),
-        ))
-        fig.update_layout(
-            title=dict(text=f"{dom_icon} {dom_label} Health", font=dict(size=13, color="#333")),
-            height=230,
-            margin=dict(l=10, r=10, t=44, b=8),
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            showlegend=False,
-            yaxis=dict(visible=False),
-            xaxis=dict(tickfont=dict(size=10)),
-        )
-        with [dc1, dc2, dc3][col_idx]:
-            st.plotly_chart(fig, use_container_width=True)
-
     # Volume by Region bar chart
-    st.markdown("<br>", unsafe_allow_html=True)
     reg_vol_data = []
     for reg in reg_list:
         rv = health_df[(health_df["date"].dt.date == sel_date) & (health_df["region"] == reg)]
@@ -577,6 +545,200 @@ if not day_h.empty:
 
 else:
     st.info("No data for the selected date / region. Adjust the filters above.")
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# [F] DEEP-DIVE — Region then Station
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("<br>", unsafe_allow_html=True)
+_sec("🔍 Deep-Dive Analysis — Region · Station")
+
+# ── F1: Region-level breakdown ────────────────────────────────────────────
+st.markdown("##### 🗺️ Region Health Breakdown")
+for reg in reg_list:
+    reg_day = day_h[day_h["region"] == reg] if "region" in day_h.columns else pd.DataFrame()
+    if reg_day.empty:
+        continue
+    rc_ = region_color(reg)
+    n_tot  = len(reg_day)
+    n_hlth_ = sum(1 for _, r in reg_day.iterrows()
+                  if _worst(r.get("area_status","UNKNOWN"), r.get("resource_status","UNKNOWN"),
+                            r.get("courier_status","UNKNOWN")) == "HEALTHY")
+    n_rev_  = sum(1 for _, r in reg_day.iterrows()
+                  if _worst(r.get("area_status","UNKNOWN"), r.get("resource_status","UNKNOWN"),
+                            r.get("courier_status","UNKNOWN")) == "REVIEW_NEEDED")
+    n_crit_ = sum(1 for _, r in reg_day.iterrows()
+                  if _worst(r.get("area_status","UNKNOWN"), r.get("resource_status","UNKNOWN"),
+                            r.get("courier_status","UNKNOWN")) == "CRITICAL")
+    n_proj_ = n_tot - n_hlth_ - n_rev_ - n_crit_
+    reg_vol = int(reg_day["pk_gross_tot"].sum())
+    reg_ag  = round(reg_day["calc_agents"].sum(), 0) if "calc_agents" in reg_day.columns else 0
+    reg_cr  = round(reg_day["calc_couriers"].sum(), 0) if "calc_couriers" in reg_day.columns else 0
+
+    with st.expander(
+        f"**{reg} Region** — {n_tot} stations · {reg_vol:,} pkgs · "
+        f"✅{n_hlth_} ⚠️{n_rev_} 🚨{n_crit_} 🔵{n_proj_}",
+        expanded=True,
+    ):
+        rc1, rc2, rc3, rc4, rc5 = st.columns(5)
+        with rc1:
+            render_kpi_card("Stations", str(n_tot), reg, color=rc_)
+        with rc2:
+            render_kpi_card("Volume", f"{reg_vol:,}", "packages", color=rc_)
+        with rc3:
+            render_kpi_card("Healthy", str(n_hlth_), f"{round(n_hlth_/n_tot*100) if n_tot else 0}% stations", color=_GREEN)
+        with rc4:
+            render_kpi_card("Req Agents", f"{int(reg_ag):,}", "calculated", color=rc_)
+        with rc5:
+            render_kpi_card("Req Couriers", f"{int(reg_cr):,}", "calculated", color=rc_)
+
+        # Domain status bar per region
+        dom_cols_ = st.columns(3)
+        for dc_i, (dcol, dlbl) in enumerate([
+            ("area_status","Area"), ("resource_status","Resource"), ("courier_status","Courier")
+        ]):
+            cnt_ = {s: _cnt(reg_day, dcol, s) for s in ["HEALTHY","REVIEW_NEEDED","CRITICAL","PROJECTED"]}
+            fig_r = go.Figure(go.Bar(
+                x=["Healthy","Review","Critical","Projected"],
+                y=[cnt_["HEALTHY"],cnt_["REVIEW_NEEDED"],cnt_["CRITICAL"],cnt_["PROJECTED"]],
+                marker_color=[_SC["HEALTHY"],_SC["REVIEW_NEEDED"],_SC["CRITICAL"],_SC["PROJECTED"]],
+                text=[cnt_["HEALTHY"],cnt_["REVIEW_NEEDED"],cnt_["CRITICAL"],cnt_["PROJECTED"]],
+                textposition="outside", textfont=dict(size=11),
+            ))
+            fig_r.update_layout(
+                title=dict(text=dlbl, font=dict(size=11, color="#555")),
+                height=180, margin=dict(l=5,r=5,t=28,b=5),
+                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                showlegend=False, yaxis=dict(visible=False),
+                xaxis=dict(tickfont=dict(size=9)),
+            )
+            with dom_cols_[dc_i]:
+                st.plotly_chart(fig_r, use_container_width=True)
+
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("##### 📌 Station-Level Historical Deep-Dive")
+
+drill_st = st.selectbox(
+    "Select a station to view full historical breakdown",
+    ["— select —"] + all_stn_ids,
+    key="an_drill",
+)
+
+if drill_st and drill_st != "— select —":
+    st_hist = health_df[health_df["loc_id"] == drill_st].sort_values("date")
+    if st_hist.empty:
+        st.info(f"No historical data for **{drill_st}**.")
+    else:
+        latest = st_hist.iloc[-1]
+        reg_l  = latest.get("region", "—") if "region" in st_hist.columns else "—"
+        st.markdown(f"#### {drill_st} &nbsp;·&nbsp; Region: **{reg_l}**")
+
+        # Summary KPIs
+        d1, d2, d3, d4 = st.columns(4)
+        with d1:
+            render_kpi_card("Latest Volume", f"{int(latest.get('pk_gross_tot',0)):,}",
+                            str(latest["date"].date()), color=_PURPLE)
+        with d2:
+            a_s = latest.get("area_status","UNKNOWN")
+            render_kpi_card("Area", _SL.get(a_s, a_s),
+                            f"Calc: {latest.get('calc_area',0):.0f} m²",
+                            color=_SC.get(a_s, _GREY))
+        with d3:
+            r_s = latest.get("resource_status","UNKNOWN")
+            render_kpi_card("Resource", _SL.get(r_s, r_s),
+                            f"Req: {latest.get('calc_agents',0):.1f} agents",
+                            color=_SC.get(r_s, _GREY))
+        with d4:
+            c_s = latest.get("courier_status","UNKNOWN")
+            render_kpi_card("Courier", _SL.get(c_s, c_s),
+                            f"Req: {latest.get('calc_couriers',0):.0f}",
+                            color=_SC.get(c_s, _GREY))
+
+        # Charts
+        tab_v, tab_ar, tab_rc = st.tabs(["📦 Volume", "📐 Area", "👥🚚 Resource & Courier"])
+
+        with tab_v:
+            fv = go.Figure()
+            fv.add_trace(go.Bar(x=st_hist["date"], y=st_hist["pk_gross_tot"],
+                                name="Volume", marker_color=_PURPLE, opacity=0.85))
+            if len(st_hist) >= 3:
+                roll = st_hist["pk_gross_tot"].rolling(7, min_periods=1).mean()
+                fv.add_trace(go.Scatter(x=st_hist["date"], y=roll,
+                                        name="7-day avg", mode="lines",
+                                        line=dict(color=_ORANGE, width=2, dash="dot")))
+            fv.update_layout(height=300, margin=dict(l=40,r=20,t=30,b=40),
+                              paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                              yaxis_title="Packages", legend=dict(orientation="h",x=0,y=1.1))
+            st.plotly_chart(fv, use_container_width=True)
+
+        with tab_ar:
+            fa = go.Figure()
+            if "calc_area" in st_hist.columns and st_hist["calc_area"].sum() > 0:
+                fa.add_trace(go.Scatter(x=st_hist["date"], y=st_hist["calc_area"],
+                                        name="Required (m²)", mode="lines+markers",
+                                        line=dict(color=_PURPLE, width=2)))
+            moa = float(latest.get("master_ops_area", 0))
+            if moa > 0:
+                fa.add_hline(y=moa, line_dash="dash", line_color=_ORANGE,
+                             annotation_text=f"Facility: {moa:.0f} m²")
+            fa.update_layout(height=300, margin=dict(l=40,r=40,t=30,b=40),
+                              paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                              yaxis_title="Area (m²)", legend=dict(orientation="h",x=0,y=1.1))
+            st.plotly_chart(fa, use_container_width=True)
+
+        with tab_rc:
+            tc1, tc2 = st.columns(2)
+            with tc1:
+                fr = go.Figure()
+                if "calc_agents" in st_hist.columns:
+                    fr.add_trace(go.Scatter(x=st_hist["date"], y=st_hist["calc_agents"],
+                                            name="Required Agents", mode="lines+markers",
+                                            line=dict(color=_PURPLE, width=2)))
+                    mag = float(latest.get("master_agents", 0))
+                    if mag > 0:
+                        fr.add_hline(y=mag, line_dash="dash", line_color=_ORANGE,
+                                     annotation_text=f"Master: {mag:.0f}")
+                fr.update_layout(height=280, margin=dict(l=40,r=20,t=30,b=40),
+                                  paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                  yaxis_title="Agents", title="Agent Requirement")
+                st.plotly_chart(fr, use_container_width=True)
+            with tc2:
+                fc_ = go.Figure()
+                if "calc_couriers" in st_hist.columns:
+                    fc_.add_trace(go.Scatter(x=st_hist["date"], y=st_hist["calc_couriers"],
+                                             name="Required Couriers", mode="lines+markers",
+                                             line=dict(color="#0055A5", width=2)))
+                    mcr = int(latest.get("master_couriers", 0))
+                    if mcr > 0:
+                        fc_.add_hline(y=mcr, line_dash="dash", line_color=_ORANGE,
+                                      annotation_text=f"Master: {mcr}")
+                fc_.update_layout(height=280, margin=dict(l=40,r=20,t=30,b=40),
+                                   paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                   yaxis_title="Couriers", title="Courier Requirement")
+                st.plotly_chart(fc_, use_container_width=True)
+
+        # Status history table
+        st.markdown("**Status History**")
+        hist_tbl = st_hist[[c for c in [
+            "date","pk_gross_tot","area_status","resource_status","courier_status",
+            "calc_area","calc_agents","calc_couriers","area_util_pct","courier_eff",
+        ] if c in st_hist.columns]].copy()
+        if "date" in hist_tbl.columns:
+            hist_tbl["date"] = hist_tbl["date"].dt.strftime("%d %b %Y")
+        if "pk_gross_tot" in hist_tbl.columns:
+            hist_tbl["pk_gross_tot"] = hist_tbl["pk_gross_tot"].map(lambda x: f"{int(x):,}")
+        hist_tbl = hist_tbl.rename(columns={
+            "date":"Date","pk_gross_tot":"Volume",
+            "area_status":"Area","resource_status":"Resource","courier_status":"Courier",
+            "calc_area":"Calc Area (m²)","calc_agents":"Req Agents","calc_couriers":"Req Couriers",
+            "area_util_pct":"Area Util%","courier_eff":"Cour Eff%",
+        })
+        st.dataframe(hist_tbl, hide_index=True, use_container_width=True)
+
+else:
+    st.info("👆 Select a station above to view its full historical breakdown.")
+
+st.markdown("<br>", unsafe_allow_html=True)
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -801,196 +963,7 @@ if not trend_df.empty:
     st.plotly_chart(fig_tr, use_container_width=True)
 
 
-# ════════════════════════════════════════════════════════════════════════════
-# [F] DEEP-DIVE — Region then Station
-# ════════════════════════════════════════════════════════════════════════════
-st.markdown("<br>", unsafe_allow_html=True)
-_sec("🔍 Deep-Dive Analysis — Region · Station")
 
-# ── F1: Region-level breakdown ────────────────────────────────────────────
-st.markdown("##### 🗺️ Region Health Breakdown")
-for reg in reg_list:
-    reg_day = day_h[day_h["region"] == reg] if "region" in day_h.columns else pd.DataFrame()
-    if reg_day.empty:
-        continue
-    rc_ = region_color(reg)
-    n_tot  = len(reg_day)
-    n_hlth_ = sum(1 for _, r in reg_day.iterrows()
-                  if _worst(r.get("area_status","UNKNOWN"), r.get("resource_status","UNKNOWN"),
-                            r.get("courier_status","UNKNOWN")) == "HEALTHY")
-    n_rev_  = sum(1 for _, r in reg_day.iterrows()
-                  if _worst(r.get("area_status","UNKNOWN"), r.get("resource_status","UNKNOWN"),
-                            r.get("courier_status","UNKNOWN")) == "REVIEW_NEEDED")
-    n_crit_ = sum(1 for _, r in reg_day.iterrows()
-                  if _worst(r.get("area_status","UNKNOWN"), r.get("resource_status","UNKNOWN"),
-                            r.get("courier_status","UNKNOWN")) == "CRITICAL")
-    n_proj_ = n_tot - n_hlth_ - n_rev_ - n_crit_
-    reg_vol = int(reg_day["pk_gross_tot"].sum())
-    reg_ag  = round(reg_day["calc_agents"].sum(), 0) if "calc_agents" in reg_day.columns else 0
-    reg_cr  = round(reg_day["calc_couriers"].sum(), 0) if "calc_couriers" in reg_day.columns else 0
-
-    with st.expander(
-        f"**{reg} Region** — {n_tot} stations · {reg_vol:,} pkgs · "
-        f"✅{n_hlth_} ⚠️{n_rev_} 🚨{n_crit_} 🔵{n_proj_}",
-        expanded=True,
-    ):
-        rc1, rc2, rc3, rc4, rc5 = st.columns(5)
-        with rc1:
-            render_kpi_card("Stations", str(n_tot), reg, color=rc_)
-        with rc2:
-            render_kpi_card("Volume", f"{reg_vol:,}", "packages", color=rc_)
-        with rc3:
-            render_kpi_card("Healthy", str(n_hlth_), f"{round(n_hlth_/n_tot*100) if n_tot else 0}% stations", color=_GREEN)
-        with rc4:
-            render_kpi_card("Req Agents", f"{int(reg_ag):,}", "calculated", color=rc_)
-        with rc5:
-            render_kpi_card("Req Couriers", f"{int(reg_cr):,}", "calculated", color=rc_)
-
-        # Domain status bar per region
-        dom_cols_ = st.columns(3)
-        for dc_i, (dcol, dlbl) in enumerate([
-            ("area_status","Area"), ("resource_status","Resource"), ("courier_status","Courier")
-        ]):
-            cnt_ = {s: _cnt(reg_day, dcol, s) for s in ["HEALTHY","REVIEW_NEEDED","CRITICAL","PROJECTED"]}
-            fig_r = go.Figure(go.Bar(
-                x=["Healthy","Review","Critical","Projected"],
-                y=[cnt_["HEALTHY"],cnt_["REVIEW_NEEDED"],cnt_["CRITICAL"],cnt_["PROJECTED"]],
-                marker_color=[_SC["HEALTHY"],_SC["REVIEW_NEEDED"],_SC["CRITICAL"],_SC["PROJECTED"]],
-                text=[cnt_["HEALTHY"],cnt_["REVIEW_NEEDED"],cnt_["CRITICAL"],cnt_["PROJECTED"]],
-                textposition="outside", textfont=dict(size=11),
-            ))
-            fig_r.update_layout(
-                title=dict(text=dlbl, font=dict(size=11, color="#555")),
-                height=180, margin=dict(l=5,r=5,t=28,b=5),
-                paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                showlegend=False, yaxis=dict(visible=False),
-                xaxis=dict(tickfont=dict(size=9)),
-            )
-            with dom_cols_[dc_i]:
-                st.plotly_chart(fig_r, use_container_width=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
-st.markdown("##### 📌 Station-Level Historical Deep-Dive")
-
-drill_st = st.selectbox(
-    "Select a station to view full historical breakdown",
-    ["— select —"] + all_stn_ids,
-    key="an_drill",
-)
-
-if drill_st and drill_st != "— select —":
-    st_hist = health_df[health_df["loc_id"] == drill_st].sort_values("date")
-    if st_hist.empty:
-        st.info(f"No historical data for **{drill_st}**.")
-    else:
-        latest = st_hist.iloc[-1]
-        reg_l  = latest.get("region", "—") if "region" in st_hist.columns else "—"
-        st.markdown(f"#### {drill_st} &nbsp;·&nbsp; Region: **{reg_l}**")
-
-        # Summary KPIs
-        d1, d2, d3, d4 = st.columns(4)
-        with d1:
-            render_kpi_card("Latest Volume", f"{int(latest.get('pk_gross_tot',0)):,}",
-                            str(latest["date"].date()), color=_PURPLE)
-        with d2:
-            a_s = latest.get("area_status","UNKNOWN")
-            render_kpi_card("Area", _SL.get(a_s, a_s),
-                            f"Calc: {latest.get('calc_area',0):.0f} m²",
-                            color=_SC.get(a_s, _GREY))
-        with d3:
-            r_s = latest.get("resource_status","UNKNOWN")
-            render_kpi_card("Resource", _SL.get(r_s, r_s),
-                            f"Req: {latest.get('calc_agents',0):.1f} agents",
-                            color=_SC.get(r_s, _GREY))
-        with d4:
-            c_s = latest.get("courier_status","UNKNOWN")
-            render_kpi_card("Courier", _SL.get(c_s, c_s),
-                            f"Req: {latest.get('calc_couriers',0):.0f}",
-                            color=_SC.get(c_s, _GREY))
-
-        # Charts
-        tab_v, tab_ar, tab_rc = st.tabs(["📦 Volume", "📐 Area", "👥🚚 Resource & Courier"])
-
-        with tab_v:
-            fv = go.Figure()
-            fv.add_trace(go.Bar(x=st_hist["date"], y=st_hist["pk_gross_tot"],
-                                name="Volume", marker_color=_PURPLE, opacity=0.85))
-            if len(st_hist) >= 3:
-                roll = st_hist["pk_gross_tot"].rolling(7, min_periods=1).mean()
-                fv.add_trace(go.Scatter(x=st_hist["date"], y=roll,
-                                        name="7-day avg", mode="lines",
-                                        line=dict(color=_ORANGE, width=2, dash="dot")))
-            fv.update_layout(height=300, margin=dict(l=40,r=20,t=30,b=40),
-                              paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                              yaxis_title="Packages", legend=dict(orientation="h",x=0,y=1.1))
-            st.plotly_chart(fv, use_container_width=True)
-
-        with tab_ar:
-            fa = go.Figure()
-            if "calc_area" in st_hist.columns and st_hist["calc_area"].sum() > 0:
-                fa.add_trace(go.Scatter(x=st_hist["date"], y=st_hist["calc_area"],
-                                        name="Required (m²)", mode="lines+markers",
-                                        line=dict(color=_PURPLE, width=2)))
-            moa = float(latest.get("master_ops_area", 0))
-            if moa > 0:
-                fa.add_hline(y=moa, line_dash="dash", line_color=_ORANGE,
-                             annotation_text=f"Facility: {moa:.0f} m²")
-            fa.update_layout(height=300, margin=dict(l=40,r=40,t=30,b=40),
-                              paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                              yaxis_title="Area (m²)", legend=dict(orientation="h",x=0,y=1.1))
-            st.plotly_chart(fa, use_container_width=True)
-
-        with tab_rc:
-            tc1, tc2 = st.columns(2)
-            with tc1:
-                fr = go.Figure()
-                if "calc_agents" in st_hist.columns:
-                    fr.add_trace(go.Scatter(x=st_hist["date"], y=st_hist["calc_agents"],
-                                            name="Required Agents", mode="lines+markers",
-                                            line=dict(color=_PURPLE, width=2)))
-                    mag = float(latest.get("master_agents", 0))
-                    if mag > 0:
-                        fr.add_hline(y=mag, line_dash="dash", line_color=_ORANGE,
-                                     annotation_text=f"Master: {mag:.0f}")
-                fr.update_layout(height=280, margin=dict(l=40,r=20,t=30,b=40),
-                                  paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                                  yaxis_title="Agents", title="Agent Requirement")
-                st.plotly_chart(fr, use_container_width=True)
-            with tc2:
-                fc_ = go.Figure()
-                if "calc_couriers" in st_hist.columns:
-                    fc_.add_trace(go.Scatter(x=st_hist["date"], y=st_hist["calc_couriers"],
-                                             name="Required Couriers", mode="lines+markers",
-                                             line=dict(color="#0055A5", width=2)))
-                    mcr = int(latest.get("master_couriers", 0))
-                    if mcr > 0:
-                        fc_.add_hline(y=mcr, line_dash="dash", line_color=_ORANGE,
-                                      annotation_text=f"Master: {mcr}")
-                fc_.update_layout(height=280, margin=dict(l=40,r=20,t=30,b=40),
-                                   paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                                   yaxis_title="Couriers", title="Courier Requirement")
-                st.plotly_chart(fc_, use_container_width=True)
-
-        # Status history table
-        st.markdown("**Status History**")
-        hist_tbl = st_hist[[c for c in [
-            "date","pk_gross_tot","area_status","resource_status","courier_status",
-            "calc_area","calc_agents","calc_couriers","area_util_pct","courier_eff",
-        ] if c in st_hist.columns]].copy()
-        if "date" in hist_tbl.columns:
-            hist_tbl["date"] = hist_tbl["date"].dt.strftime("%d %b %Y")
-        if "pk_gross_tot" in hist_tbl.columns:
-            hist_tbl["pk_gross_tot"] = hist_tbl["pk_gross_tot"].map(lambda x: f"{int(x):,}")
-        hist_tbl = hist_tbl.rename(columns={
-            "date":"Date","pk_gross_tot":"Volume",
-            "area_status":"Area","resource_status":"Resource","courier_status":"Courier",
-            "calc_area":"Calc Area (m²)","calc_agents":"Req Agents","calc_couriers":"Req Couriers",
-            "area_util_pct":"Area Util%","courier_eff":"Cour Eff%",
-        })
-        st.dataframe(hist_tbl, hide_index=True, use_container_width=True)
-
-else:
-    st.info("👆 Select a station above to view its full historical breakdown.")
 
 
 # ════════════════════════════════════════════════════════════════════════════
