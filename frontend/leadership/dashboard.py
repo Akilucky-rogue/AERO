@@ -778,28 +778,12 @@ with tab_st:
             
         st.markdown("<br>", unsafe_allow_html=True)
 
-    _section_header("Health Status Distribution — Station", "Breakdown by monitoring category — Area, Resource, Courier")
     if st_area.empty and st_res.empty and st_cour.empty:
         st.info(
             "No published Station health reports found. Facility teams must publish "
             "reports from their respective Health Monitor tabs before data appears here."
         )
     else:
-        _status_bar("Area Health", st_area_sc, "#4D148C")
-        _status_bar("Resource Health", st_res_sc, "#FF6200")
-        _status_bar("Courier Health", st_cour_sc, "#DE002E")
-
-        # Region-Wise Analysis (STATION Only)
-        st.markdown("---")
-        _section_header("🗺️ Regional Operations Breakdown — Station", "Region-wise health, volume, and deviation breakdown for all station facilities")
-        _master_df_reg = read_master_data()
-        st_area = _ensure_region_column(st_area, _master_df_reg)
-        st_res = _ensure_region_column(st_res, _master_df_reg)
-        st_cour = _ensure_region_column(st_cour, _master_df_reg)
-        _render_region_analysis(st_area, st_res, st_cour)
-
-
-
         # Critical Station Locations
         if not st_area.empty and "STATUS" in st_area.columns and "LOC ID" in st_area.columns:
             crit = st_area[st_area["STATUS"] == "Critical"]
