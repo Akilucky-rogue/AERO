@@ -59,4 +59,6 @@ data/NSL_MODEL.json
 data/*.json
 docs/famis/
 docs/master/
+docs/nsl/
+docs/
 aero/data/inbox/processed/

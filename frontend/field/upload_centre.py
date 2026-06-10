@@ -33,6 +33,8 @@ from aero.data.excel_store import (
     read_famis_registry,
     upsert_master_data,
     read_master_data,
+    upsert_station_nsl_data,
+    read_station_nsl_data,
 )
 
 logger = logging.getLogger(__name__)
@@ -224,13 +226,27 @@ def _auto_load_master() -> None:
         logger.warning("Auto-load master failed: %s", exc)
 
 
+def _auto_load_nsl() -> None:
+    """On first page load, restore station_nsl_data from persisted Excel if not in session."""
+    if st.session_state.get("station_nsl_data") is not None:
+        return  # already in session
+    try:
+        nsl_df = read_station_nsl_data()
+        if not nsl_df.empty:
+            st.session_state["station_nsl_data"] = nsl_df
+            logger.info("Auto-loaded Station NSL from FAMIS_META.xlsx (%d rows)", len(nsl_df))
+    except Exception as exc:
+        logger.warning("Auto-load NSL failed: %s", exc)
+
+
 # ── Run auto-loads before rendering ──────────────────────────────────────────
 _auto_load_master()
+_auto_load_nsl()
 
 # ── Page render ───────────────────────────────────────────────────────────────
 render_header(
     "DATA UPLOAD CENTRE",
-    "Upload & Manage FAMIS Volume Data and Facility Master Files",
+    "Upload & Manage FAMIS Volume Data, Facility Master Files and Station NSL Data",
     logo_height=80,
     badge="FIELD",
 )
@@ -415,7 +431,104 @@ if master_file is not None:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════════════════════
-# SECTION 3 — FAMIS Upload Registry (full visibility table)
+# SECTION 3 — Station-Level NSL Data Upload
+# ════════════════════════════════════════════════════════════════════════════
+_section_header("📊", "STATION-LEVEL NSL DATA",
+                "Network Service Level performance data (.xlsx / .xls / .csv)",
+                bg="#1B4F72", bg2="#2E86C1")
+
+# Show currently-loaded NSL info
+nsl_in_session = st.session_state.get("station_nsl_data")
+if nsl_in_session is not None and not nsl_in_session.empty:
+    _nsl_stations = nsl_in_session["orig_loc_cd"].nunique() if "orig_loc_cd" in nsl_in_session.columns else len(nsl_in_session)
+    _nsl_rows = len(nsl_in_session)
+    st.markdown(f"""
+    <div style="background:linear-gradient(135deg,#EBF5FB 0%,#D6EAF8 100%);
+        border-left:5px solid #2E86C1;border-radius:8px;padding:10px 14px;margin-bottom:12px;">
+        <span style="color:#1B4F72;font-weight:700;">✅ Station NSL Data Active</span>
+        &nbsp;—&nbsp;
+        <span style="color:#555;">{_nsl_rows:,} records · {_nsl_stations} origin stations loaded · Upload a new file to replace</span>
+    </div>
+    """, unsafe_allow_html=True)
+
+nsl_file = st.file_uploader(
+    "Upload Station-Level NSL file",
+    type=["xlsx", "xls", "csv"],
+    key="nsl_uploader",
+    label_visibility="collapsed",
+)
+
+if nsl_file is not None:
+    try:
+        with st.spinner("Parsing and aggregating Station-Level NSL file (this may take up to a minute for large files)..."):
+            nsl_raw = nsl_file.read()
+            _save_local(nsl_raw, nsl_file.name, "nsl")
+
+            # Parse the file
+            if nsl_file.name.lower().endswith(".csv"):
+                nsl_df = pd.read_csv(io.BytesIO(nsl_raw))
+            else:
+                nsl_df = pd.read_excel(io.BytesIO(nsl_raw), sheet_name=0)
+
+            # Normalise column names (lowercase + underscores)
+            nsl_df.columns = (
+                nsl_df.columns.astype(str).str.strip().str.lower()
+                .str.replace(r"[\s/\\]+", "_", regex=True)
+                .str.replace(r"[#%]", "", regex=True)
+                .str.strip("_")
+            )
+
+            # Try to parse date columns
+            for dcol in ["month_date", "weekending_dt"]:
+                if dcol in nsl_df.columns:
+                    nsl_df[dcol] = pd.to_datetime(nsl_df[dcol], errors="coerce")
+
+            # Aggregate to station-level by month/week to keep storage and reload instant
+            grp_cols = []
+            for c in ["month_date", "weekending_dt", "orig_loc_cd", "orig_station", "orig_region", "mbg_class", "service", "product"]:
+                if c in nsl_df.columns:
+                    grp_cols.append(c)
+
+            sum_cols = ["tot_vol", "nsl_ot_vol", "nsl_f_vol", "mbg_ot_vol", "mbg_f_vol"]
+            sum_cols = [c for c in sum_cols if c in nsl_df.columns]
+
+            for c in sum_cols:
+                nsl_df[c] = pd.to_numeric(nsl_df[c], errors="coerce").fillna(0)
+
+            if grp_cols:
+                nsl_df = nsl_df.groupby(grp_cols, dropna=False)[sum_cols].sum().reset_index()
+
+            # Persist to Excel so it survives app restarts
+            try:
+                upsert_station_nsl_data(nsl_df)
+            except Exception as exc:
+                logger.warning("Could not persist NSL data: %s", exc)
+
+            # Store in session state
+            st.session_state["station_nsl_data"] = nsl_df
+            st.session_state["station_nsl_file_name"] = nsl_file.name
+
+            # Build summary info
+            n_rows = len(nsl_df)
+            n_stations = int(nsl_df["orig_loc_cd"].nunique()) if "orig_loc_cd" in nsl_df.columns else 0
+            date_info = ""
+            if "month_date" in nsl_df.columns and nsl_df["month_date"].notna().any():
+                d_min = nsl_df["month_date"].min().strftime("%d %b %Y")
+                d_max = nsl_df["month_date"].max().strftime("%d %b %Y")
+                date_info = f" · **{d_min} → {d_max}**"
+
+            st.success(
+                f"✅ **{nsl_file.name}** uploaded & aggregated — "
+                f"**{n_rows:,}** station-period records stored · **{n_stations}** origin stations"
+                f"{date_info} · Archived to docs/nsl/"
+            )
+    except Exception as exc:
+        st.error(f"❌ Could not parse NSL file: {exc}")
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ════════════════════════════════════════════════════════════════════════════
+# SECTION 4 — FAMIS Upload Registry (full visibility table)
 # ════════════════════════════════════════════════════════════════════════════
 _section_header("📋", "UPLOAD REGISTRY",
                 "All FAMIS files uploaded — names, formats, date ranges, record counts",
@@ -478,10 +591,10 @@ else:
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════════════════════
-# SECTION 4 — Template Downloads
+# SECTION 5 — Template Downloads
 # ════════════════════════════════════════════════════════════════════════════
 with st.expander("⬇️  Download Data Templates", expanded=False):
-    dl1, dl2 = st.columns(2)
+    dl1, dl2, dl3 = st.columns(3)
     with dl1:
         st.markdown("**FAMIS Volume Data Template**")
         st.caption("date · loc_id · pk_gross_tot · pk_gross_inb · pk_gross_outb · pk_oda · pk_opa · pk_roc · fte_tot")
@@ -511,6 +624,22 @@ with st.expander("⬇️  Download Data Templates", expanded=False):
             tpl2.to_excel(w, index=False, sheet_name="Master")
         st.download_button(
             "⬇️ Master Template", buf2.getvalue(), "Master_Template.xlsx",
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True,
+        )
+    with dl3:
+        st.markdown("**Station NSL Data Template**")
+        st.caption("month_date · orig_loc_cd · orig_region · Service · Product · NSL_OT_VOL · NSL_F_VOL · TOT_VOL")
+        tpl3 = pd.DataFrame(
+            [["2026-05-01", "ABCD", "MEISA", "Priority", "Parcel", 1, 0, 1]],
+            columns=["month_date", "orig_loc_cd", "orig_region", "Service",
+                     "Product", "NSL_OT_VOL", "NSL_F_VOL", "TOT_VOL"],
+        )
+        buf3 = io.BytesIO()
+        with pd.ExcelWriter(buf3, engine="openpyxl") as w:
+            tpl3.to_excel(w, index=False, sheet_name="NSL")
+        st.download_button(
+            "⬇️ NSL Template", buf3.getvalue(), "NSL_Template.xlsx",
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
             use_container_width=True,
         )

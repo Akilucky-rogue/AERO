@@ -181,7 +181,7 @@ def _phase_scope(title: str, items: list, bg: str, color: str):
 
 
 # ── Live fallback engines ───────────────────────────────────────────────────
-from aero.data.excel_store import read_famis_uploads, read_master_data
+from aero.data.excel_store import read_famis_uploads, read_master_data, read_station_nsl_data
 from aero.data.hub_store import read_hub_uploads
 from aero.core.area_calculator import calculate_area_requirements, calculate_area_status
 from aero.core.resource_calculator import calculate_resource_requirements, calculate_resource_health_status
@@ -759,8 +759,8 @@ with tab_st:
             </div>
         </div>""", unsafe_allow_html=True)
 
-        # 6 KPI cards
-        kc = st.columns(6)
+        # 5 KPI cards
+        kc = st.columns(5)
         with kc[0]:
             _kpi_card("Stations", str(st_kpis["stations"]), "Active stations", color="#4D148C")
         with kc[1]:
@@ -769,11 +769,8 @@ with tab_st:
             net_pct = st_kpis["health_pct"]
             _kpi_card("Network Health", f"{net_pct}%", f"{st_kpis['healthy_count']}/{st_kpis['stations']} healthy", color="#008A00" if net_pct >= 70 else ("#FFB800" if net_pct >= 40 else "#DE002E"))
         with kc[3]:
-            crit = st_kpis["critical"]
-            _kpi_card("Critical Alerts", str(crit), "across all domains", color="#DE002E" if crit > 0 else "#008A00")
-        with kc[4]:
             _kpi_card("Avg Courier Dev.", f"{st_kpis['courier_dev']:+.1f}%", "required vs actual", color="#008A00" if st_kpis['courier_dev'] >= 0 else "#DE002E")
-        with kc[5]:
+        with kc[4]:
             _kpi_card("Avg Area Dev.", f"{st_kpis['area_dev']:+.1f}%", "calculated vs actual", color="#008A00" if st_kpis['area_dev'] >= 0 else "#DE002E")
             
         st.markdown("<br>", unsafe_allow_html=True)
@@ -797,6 +794,155 @@ with tab_st:
                         c for c in crit.columns if c not in ("LOC ID", "DATE", "STATUS")
                     ]
                     st.dataframe(crit[show[:8]].reset_index(drop=True), use_container_width=True)
+
+        # ────────────────────────────────────────────────────────────────
+        # Station-wise NSL Performance
+        # ────────────────────────────────────────────────────────────────
+        st.markdown("---")
+        _section_header(
+            "Station-Level NSL Performance",
+            "Network Service Level — on-time delivery performance by station",
+            color="#1B4F72",
+        )
+
+        nsl_df = st.session_state.get("station_nsl_data")
+        if nsl_df is None or (hasattr(nsl_df, "empty") and nsl_df.empty):
+            nsl_df = read_station_nsl_data()
+            if not nsl_df.empty:
+                st.session_state["station_nsl_data"] = nsl_df
+
+        if nsl_df is None or (hasattr(nsl_df, "empty") and nsl_df.empty):
+            st.info(
+                "No Station NSL data loaded. Upload an NSL file via the "
+                "**Data Upload Centre** to view station-wise service level analytics."
+            )
+        else:
+            # ── Prepare the data ──────────────────────────────────────
+            _nsl = nsl_df.copy()
+
+            # Let user filter by specific week ending for the KPI cards, or view Grand Total (all weeks)
+            weeks_list = ["Grand Total (All Weeks)"]
+            if "weekending_dt" in _nsl.columns:
+                unique_weeks = sorted(_nsl["weekending_dt"].dropna().unique())
+                weeks_list.extend([w.strftime("%Y-%m-%d") for w in unique_weeks])
+
+            selected_week = st.selectbox(
+                "📅 Filter Headline KPIs by Week",
+                options=weeks_list,
+                index=0,
+                key="nsl_week_selector"
+            )
+
+            if selected_week == "Grand Total (All Weeks)":
+                _nsl_filtered = _nsl
+                _period_label = "All Weeks"
+            else:
+                _nsl_filtered = _nsl[_nsl["weekending_dt"].dt.strftime("%Y-%m-%d") == selected_week]
+                _period_label = selected_week
+
+            # ── Network-level KPI cards ───────────────────────────────
+            _net_tot   = _nsl_filtered["tot_vol"].sum() if "tot_vol" in _nsl_filtered.columns else 0
+            _net_ot    = _nsl_filtered["nsl_ot_vol"].sum() if "nsl_ot_vol" in _nsl_filtered.columns else 0
+            _net_fail  = _nsl_filtered["nsl_f_vol"].sum() if "nsl_f_vol" in _nsl_filtered.columns else 0
+            _net_nsl   = round(_net_ot / _net_tot * 100, 2) if _net_tot else 0
+            _n_origins = int(_nsl_filtered["orig_loc_cd"].nunique()) if "orig_loc_cd" in _nsl_filtered.columns else 0
+
+            nk = st.columns(5)
+            with nk[0]:
+                _nsl_color = "#008A00" if _net_nsl >= 95 else ("#FFB800" if _net_nsl >= 90 else "#DE002E")
+                _kpi_card("Network NSL", f"{_net_nsl:.1f}%", f"On-time — {_period_label}", color=_nsl_color)
+            with nk[1]:
+                _kpi_card("Total Shipments", f"{int(_net_tot):,}", _period_label, color="#1B4F72")
+            with nk[2]:
+                _kpi_card("On-Time Vol.", f"{int(_net_ot):,}", f"{_net_nsl:.1f}% of total", color="#008A00")
+            with nk[3]:
+                _kpi_card("Failure Vol.", f"{int(_net_fail):,}", f"{round(_net_fail/_net_tot*100,1) if _net_tot else 0}% of total", color="#DE002E")
+            with nk[4]:
+                _kpi_card("Origin Stations", str(_n_origins), "in NSL data", color="#4D148C")
+
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # ── Station-wise Pivot Table (Weekly NSL % + Grand Total) ──
+            if "orig_loc_cd" in _nsl.columns and "tot_vol" in _nsl.columns:
+                # 1. Group by station and weekending_dt to sum volumes
+                grp_cols = ["orig_loc_cd"]
+                if "orig_station" in _nsl.columns:
+                    grp_cols.append("orig_station")
+                if "orig_region" in _nsl.columns:
+                    grp_cols.append("orig_region")
+                
+                piv_grp_cols = grp_cols.copy()
+                if "weekending_dt" in _nsl.columns:
+                    piv_grp_cols.append("weekending_dt")
+                    
+                grp_df = _nsl.groupby(piv_grp_cols, dropna=False)[["nsl_ot_vol", "tot_vol"]].sum().reset_index()
+                grp_df["NSL %"] = (grp_df["nsl_ot_vol"] / grp_df["tot_vol"] * 100).fillna(0)
+                
+                # Pivot by weekending dates
+                if "weekending_dt" in _nsl.columns:
+                    grp_df["weekending_str"] = grp_df["weekending_dt"].dt.strftime("%Y-%m-%d")
+                    piv_df = grp_df.pivot(index=grp_cols, columns="weekending_str", values="NSL %").reset_index()
+                else:
+                    piv_df = grp_df[grp_cols].copy()
+                    
+                # Calculate Grand Total NSL % for each station
+                totals = _nsl.groupby(["orig_loc_cd"], dropna=False)[["nsl_ot_vol", "tot_vol"]].sum().reset_index()
+                totals["Grand Total"] = (totals["nsl_ot_vol"] / totals["tot_vol"] * 100).round(2).fillna(0)
+                
+                # Merge Grand Total back
+                piv_df = piv_df.merge(totals[["orig_loc_cd", "Grand Total"]], on="orig_loc_cd", how="left")
+                
+                # Sort worst Grand Total first
+                piv_df = piv_df.sort_values("Grand Total", ascending=True).reset_index(drop=True)
+                
+                # Rename columns for display
+                _rename_map = {
+                    "orig_loc_cd": "Station",
+                    "orig_station": "Station Name",
+                    "orig_region": "Region"
+                }
+                piv_display = piv_df.rename(columns=_rename_map)
+                
+                st.markdown(f"""
+                <div style="background:linear-gradient(135deg,#EBF5FB 0%,#D6EAF8 100%);
+                    border-left:5px solid #1B4F72;border-radius:8px;padding:10px 14px;
+                    margin-bottom:12px;">
+                    <span style="color:#1B4F72;font-weight:700;font-size:13px;">
+                        📋 Station Weekly NSL % Pivot Table (Worst Grand Total First)
+                    </span>
+                    <span style="color:#555;font-size:12px;margin-left:8px;">
+                        {len(piv_display)} stations · Matches Sheet2 grand totals exactly
+                    </span>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Build Streamlit column configs
+                col_configs = {}
+                for col in piv_display.columns:
+                    if col not in ["Station", "Station Name", "Region"]:
+                        col_configs[col] = st.column_config.NumberColumn(
+                            col,
+                            format="%.1f%%" if col != "Grand Total" else "%.2f%%",
+                            help=f"NSL % for {col}"
+                        )
+                
+                st.dataframe(
+                    piv_display,
+                    use_container_width=True,
+                    hide_index=True,
+                    column_config=col_configs,
+                    height=min(400, 35 + 35 * len(piv_display)),
+                )
+
+                # ── Bar chart: Bottom 20 stations by NSL ──────────────
+                _bottom_n = min(20, len(piv_df))
+                _chart_df = piv_df.head(_bottom_n).copy()
+                _chart_df = _chart_df.set_index("orig_loc_cd")
+                st.markdown(f"""
+                <div style="font-weight:700;font-size:13px;color:#1B4F72;margin:12px 0 4px 0;">
+                    ⚠️ Bottom {_bottom_n} Stations by Overall Grand Total NSL %
+                </div>""", unsafe_allow_html=True)
+                st.bar_chart(_chart_df["Grand Total"], color="#DE002E")
 
 # ============================================================
 # TAB 2 — HUB

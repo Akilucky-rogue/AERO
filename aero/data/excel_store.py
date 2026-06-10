@@ -240,13 +240,16 @@ def upsert_famis_registry(metadata: dict) -> None:
     else:
         existing = pd.DataFrame()
 
-    # Read the MASTER_DATA sheet as well so we can preserve it in the atomic write
+    # Read the MASTER_DATA and STATION_NSL_DATA sheets as well so we can preserve them in the atomic write
     master_df = _read_sheet_safe(FAMIS_META_PATH, "MASTER_DATA")
+    nsl_df = _read_sheet_safe(FAMIS_META_PATH, "STATION_NSL_DATA")
 
     combined = pd.concat([existing, new_row], ignore_index=True, sort=False)
     sheets: dict[str, pd.DataFrame] = {"FAMIS_REGISTRY": combined}
     if not master_df.empty:
         sheets["MASTER_DATA"] = master_df
+    if not nsl_df.empty:
+        sheets["STATION_NSL_DATA"] = nsl_df
 
     _atomic_write(FAMIS_META_PATH, sheets)
 
@@ -273,9 +276,12 @@ def upsert_master_data(df: pd.DataFrame) -> None:
     """
     _ensure_dir()
     registry_df = _read_sheet_safe(FAMIS_META_PATH, "FAMIS_REGISTRY")
+    nsl_df = _read_sheet_safe(FAMIS_META_PATH, "STATION_NSL_DATA")
     sheets: dict[str, pd.DataFrame] = {"MASTER_DATA": df}
     if not registry_df.empty:
         sheets["FAMIS_REGISTRY"] = registry_df
+    if not nsl_df.empty:
+        sheets["STATION_NSL_DATA"] = nsl_df
     _atomic_write(FAMIS_META_PATH, sheets)
 
 
@@ -284,6 +290,30 @@ def read_master_data() -> pd.DataFrame:
     if not os.path.exists(FAMIS_META_PATH):
         return pd.DataFrame()
     return _read_sheet_safe(FAMIS_META_PATH, "MASTER_DATA")
+
+
+# ===================================================================
+# 5. STATION NSL PERSISTENCE
+# ===================================================================
+
+def upsert_station_nsl_data(df: pd.DataFrame) -> None:
+    """Persist the Station-Level NSL DataFrame (replace-on-upload, not append)."""
+    _ensure_dir()
+    registry_df = _read_sheet_safe(FAMIS_META_PATH, "FAMIS_REGISTRY")
+    master_df = _read_sheet_safe(FAMIS_META_PATH, "MASTER_DATA")
+    sheets: dict[str, pd.DataFrame] = {"STATION_NSL_DATA": df}
+    if not registry_df.empty:
+        sheets["FAMIS_REGISTRY"] = registry_df
+    if not master_df.empty:
+        sheets["MASTER_DATA"] = master_df
+    _atomic_write(FAMIS_META_PATH, sheets)
+
+
+def read_station_nsl_data() -> pd.DataFrame:
+    """Load the last-uploaded Station-Level NSL data from FAMIS_META.xlsx."""
+    if not os.path.exists(FAMIS_META_PATH):
+        return pd.DataFrame()
+    return _read_sheet_safe(FAMIS_META_PATH, "STATION_NSL_DATA")
 
 
 # ---------------------------------------------------------------------------
