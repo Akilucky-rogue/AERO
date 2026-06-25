@@ -552,6 +552,18 @@ if not trend_df.empty:
     st.plotly_chart(fig5, width="stretch")
 
 # ════════════════════════════════════════════════════════════════════════════
+# SECTION NSL — NSL + NSL+24 Performance Analytics
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("<br>", unsafe_allow_html=True)
+_section_header("📡 NSL Performance — Network Service Level + NSL+24")
+
+try:
+    from aero.ui.nsl_tab import render_nsl_tab
+    render_nsl_tab()
+except Exception as _nsl_err:
+    st.warning(f"NSL module could not load: {_nsl_err}")
+
+# ════════════════════════════════════════════════════════════════════════════
 # SECTION 5 — System Configuration (INLINE)
 # Field engineers can adjust TACT values and area constants here.
 # Changes take effect immediately in all planning calculations.
