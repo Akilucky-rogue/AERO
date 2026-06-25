@@ -39,10 +39,18 @@ def render_header(title: str, subtitle: str = None, logo_width: int = 200, logo_
         logo_html = f'<img src="data:image/png;base64,{_LOGO_B64}" alt="FedEx" style="height:{logo_height}px; object-fit:contain;" />'
     else:
         logo_html = '<span class="fedex-logo-text"><span style="color:#4D148C;">Fed</span><span style="color:#FF6200;">Ex</span></span>'
+    aero_badge = (
+        '<div class="aero-project-badge">'
+        '<div class="aero-badge-name">AERO</div>'
+        '<div class="aero-badge-tagline">Resource Intelligence</div>'
+        '</div>'
+    )
     st.markdown(
         f'<div class="fedex-topbar">'
         f'<div class="fedex-topbar-left">'
         f"{logo_html}"
+        f'<span class="fedex-topbar-sep"> | </span>'
+        f"{aero_badge}"
         f'<span class="fedex-topbar-sep"> | </span>'
         f'<div class="fedex-topbar-title-block"><div class="fedex-topbar-title">{title}</div>{subtitle_block}</div>'
         f"</div>"

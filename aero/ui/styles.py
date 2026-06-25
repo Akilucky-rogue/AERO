@@ -488,6 +488,25 @@ def apply_styles():
         font-size:12px !important;
     }
 
+    /* ── AERO PROJECT BADGE (topbar) ── */
+    .aero-project-badge {
+        display: flex !important; flex-direction: column !important;
+        align-items: flex-start !important; gap: 1px !important;
+        padding: 0 0 0 14px !important; flex-shrink: 0 !important;
+        border-left: 3px solid var(--fc-orange) !important;
+    }
+    .aero-badge-name {
+        font-family: var(--font-head) !important; font-size: 16px !important;
+        font-weight: 900 !important; color: var(--fc-purple) !important;
+        letter-spacing: 2.5px !important; line-height: 1 !important;
+    }
+    .aero-badge-tagline {
+        font-family: var(--font-sans) !important; font-size: 7.5px !important;
+        color: var(--gray-50) !important; text-transform: uppercase !important;
+        letter-spacing: 1px !important; font-weight: 700 !important;
+        line-height: 1.2 !important; white-space: nowrap !important;
+    }
+
     /* ── FOOTER (rendered by render_footer) ── */
     .fedex-footer { margin-top:2rem !important; padding-top:1rem !important; border-top:1px solid var(--gray-20) !important; text-align:center !important; }
     .fedex-footer-logo { font-family:"Arial Black",Arial,sans-serif !important; font-size:28px !important; font-weight:900 !important; letter-spacing:-1px !important; display:inline-block !important; margin-bottom:6px !important; }

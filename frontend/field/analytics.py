@@ -967,6 +967,18 @@ if not trend_df.empty:
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# [F] NSL PERFORMANCE  (Network Service Level + NSL+24)
+# ════════════════════════════════════════════════════════════════════════════
+st.markdown("<br>", unsafe_allow_html=True)
+_sec("📡 NSL Performance — Network Service Level + NSL+24")
+
+try:
+    from aero.ui.nsl_tab import render_nsl_tab
+    render_nsl_tab()
+except Exception as _nsl_err:
+    st.warning(f"NSL module could not load: {_nsl_err}")
+
+# ════════════════════════════════════════════════════════════════════════════
 # [G] SYSTEM CONFIGURATION  (for field engineers — collapsed by default)
 # ════════════════════════════════════════════════════════════════════════════
 st.markdown("---")

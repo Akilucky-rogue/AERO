@@ -106,8 +106,27 @@ header[data-testid="stHeader"] {{ display:none!important; }}
     background:transparent!important;
 }}
 
+/* ── AERO BRAND BADGE (login) ── */
+.lp-brand-sep {{
+    width:1px; height:52px;
+    background:#DDE0E8; flex-shrink:0;
+}}
+.lp-aero-badge {{
+    display:flex; flex-direction:column; align-items:flex-start;
+}}
+.lp-aero-name {{
+    font-family:'DM Sans','Inter',sans-serif;
+    font-weight:900; font-size:28px;
+    color:#4D148C; letter-spacing:3px; line-height:1;
+}}
+.lp-aero-sub {{
+    font-family:'Inter',sans-serif;
+    font-size:8px; color:#999;
+    text-transform:uppercase; letter-spacing:0.8px;
+    font-weight:600; line-height:1.6;
+}}
 /* ── LEFT PANEL TYPOGRAPHY ── */
-.lp-logo {{ margin-bottom:32px; text-align:center; }}
+.lp-logo {{ margin-bottom:28px; text-align:center; }}
 .lp-h {{
     font-family:'DM Sans','Inter',sans-serif;
     font-weight:800; font-size:28px;
@@ -286,7 +305,17 @@ left_col, right_col = st.columns([1.1, 1])
 
 with left_col:
     st.markdown(f"""
-        <div class="lp-logo">{_logo_tag}</div>
+        <div class="lp-logo">
+            <div style="display:flex;align-items:center;justify-content:center;gap:20px;">
+                {_logo_tag}
+                <div class="lp-brand-sep"></div>
+                <div class="lp-aero-badge">
+                    <div class="lp-aero-name">AERO</div>
+                    <div class="lp-aero-sub">Automated Evaluation of</div>
+                    <div class="lp-aero-sub">Resource Occupancy</div>
+                </div>
+            </div>
+        </div>
         <div class="lp-h">Log in to AERO</div>
         <div class="lp-sub">Welcome back! Enter your credentials to continue.</div>
         <div class="lp-div"></div>

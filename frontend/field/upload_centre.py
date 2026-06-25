@@ -355,6 +355,53 @@ if famis_file is not None:
         except Exception as exc:
             st.error(f"❌ Could not parse file: {exc}")
 
+    # ── Generate HTML analytics report after successful upload ────────────
+    famis_in_session_now = st.session_state.get("famis_data")
+    if famis_in_session_now is not None and not famis_in_session_now.empty:
+        try:
+            from aero.report.html_generator import generate_famis_report
+            with st.spinner("⚙️ Generating AERO Analytics Report (HTML) …"):
+                _master = st.session_state.get("master_data")
+                _nsl    = st.session_state.get("station_nsl_data")
+                _dname  = st.session_state.get("famis_file_name", "AERO_Report")
+                _user   = st.session_state.get("aero_user", {}).get("display_name", "AERO Platform")
+                _html_bytes = generate_famis_report(
+                    famis_df=famis_in_session_now,
+                    master_df=_master,
+                    nsl_df=_nsl,
+                    report_title=f"AERO Analytics · {_dname}",
+                    generated_by=_user,
+                )
+                st.session_state["_aero_html_report"]      = _html_bytes
+                st.session_state["_aero_html_report_name"] = _dname
+        except Exception as _html_exc:
+            logger.warning("HTML report generation failed: %s", _html_exc)
+
+# ── HTML Report download button (shown after any FAMIS upload in this session) ──
+if st.session_state.get("_aero_html_report"):
+    _rpt_bytes = st.session_state["_aero_html_report"]
+    _rpt_name  = st.session_state.get("_aero_html_report_name", "AERO_Report")
+    st.markdown("""
+    <div style="background:linear-gradient(90deg,#4D148C 0%,#671CAA 100%);
+        border-radius:10px;padding:14px 20px;margin-top:8px;">
+        <div style="color:#fff;font-size:15px;font-weight:700;margin-bottom:4px;">
+            📊 AERO Analytics Report Ready
+        </div>
+        <div style="color:rgba(255,255,255,0.80);font-size:12px;">
+            Interactive HTML report — hover charts, sort tables, explore all tabs.
+            Works offline after first load.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.download_button(
+        label="⬇️  Download AERO Analytics Report (HTML)",
+        data=_rpt_bytes,
+        file_name=f"AERO_{_rpt_name}_Analytics.html",
+        mime="text/html",
+        use_container_width=True,
+        type="primary",
+    )
+
 st.markdown("<br>", unsafe_allow_html=True)
 
 # ════════════════════════════════════════════════════════════════════════════
